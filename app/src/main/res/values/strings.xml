@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">DaktarSaab</string>
+    <string name="title_activity_login">LoginActivity</string>
+    <string name="title_activity_signup">SignupActivity</string>
+    <string name="title_activity_forgot">ForgotActivity</string>
+    <string name="title_activity_forgot_password">ForgotPassword</string>
+    <string name="title_activity_dashboard">DashboardActivity</string>
+    <string name="title_activity_maps">MapsActivity</string>
+    <string name="title_activity_geo_maps">GeoMapsActivity</string>
 </resources>
