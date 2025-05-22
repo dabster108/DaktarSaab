@@ -1,6 +1,6 @@
 // build.gradle.kts (Module: app)
 
-import java.util.Properties // Add this import
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -9,11 +9,10 @@ plugins {
 }
 
 // Read local.properties to get the API key
-// This block must be at the top level of the script, outside 'android { ... }'
 val localProperties = Properties().apply {
     val localFile = rootProject.file("local.properties")
     if (localFile.exists()) {
-        localFile.inputStream().use { this.load(it) } // Ensure 'this' is used to call 'load'
+        localFile.inputStream().use { this.load(it) }
     }
 }
 
@@ -30,7 +29,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Make the Geoapify API key accessible via BuildConfig
         buildConfigField("String", "GEOAPIFY_API_KEY", "\"${localProperties.getProperty("geoapifyApiKey", "6acbf75b57b74b749fd87b61351b7c77")}\"")
     }
 
@@ -52,16 +50,34 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true // Explicitly ensure BuildConfig is enabled
+        buildConfig = true
+    }
+
+    packagingOptions {
+        resources {
+            excludes += "com/j256/ormlite/core/README.txt"
+            // Add any other specific resource excludes if they pop up
+        }
     }
 }
 
+// --- Add this block to your build.gradle.kts ---
+configurations.all {
+    exclude(group = "com.j256.ormlite", module = "ormlite-core")
+}
+// --- End of new block ---
 
 dependencies {
     // START: osmdroid dependencies for OpenStreetMap (base for Geoapify)
     implementation("org.osmdroid:osmdroid-android:6.1.18")
     implementation("org.slf4j:slf4j-android:1.7.30")
     // END: osmdroid dependencies
+
+    // Keep this for clarity, though the global exclude might make it redundant.
+    // It specifically prevents ormlite-android from pulling in ormlite-core.
+    implementation("com.j256.ormlite:ormlite-android:6.1") {
+        exclude(group = "com.j256.ormlite", module = "ormlite-core")
+    }
 
     // Your existing Compose and other dependencies
     implementation("io.coil-kt:coil-compose:2.4.0")
@@ -98,6 +114,6 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // Additional dependencies for osmdroid or other libraries
-    implementation("org.osmdroid:osmdroid-mapsforge:6.1.18") // Optional: Mapsforge support
-    implementation("org.osmdroid:osmdroid-geopackage:6.1.18") // Optional: GeoPackage support
+    implementation("org.osmdroid:osmdroid-mapsforge:6.1.18")
+    implementation("org.osmdroid:osmdroid-geopackage:6.1.18")
 }

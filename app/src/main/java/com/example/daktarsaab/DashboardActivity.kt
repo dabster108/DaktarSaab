@@ -38,6 +38,7 @@ import com.google.accompanist.pager.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+// Data class for Medical Articles
 data class MedicalArticle(
     val title: String,
     val subtitle: String,
@@ -45,13 +46,14 @@ data class MedicalArticle(
     val iconResId: Int
 )
 
+// Main Activity for the Dashboard
 class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge() // Enables edge-to-edge display for a modern look
         setContent {
-            DaktarSaabTheme {
-                DashboardScreen()
+            DaktarSaabTheme { // Apply your app's theme
+                DashboardScreen() // Display the main dashboard UI
             }
         }
     }
@@ -60,34 +62,37 @@ class DashboardActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPagerApi::class)
 @Composable
 fun DashboardScreen() {
+    // State variables to control the animated visibility of UI elements
     var showServiceGrid by remember { mutableStateOf(false) }
     var showMedicalArticles by remember { mutableStateOf(false) }
     var showRecentHistoryLabel by remember { mutableStateOf(false) }
     var showRecentHistory by remember { mutableStateOf(false) }
 
+    // LaunchedEffect to trigger animations sequentially after a delay
     LaunchedEffect(true) {
-        delay(300)
+        delay(300) // Delay before showing service grid
         showServiceGrid = true
-        delay(300)
+        delay(300) // Delay before showing medical articles
         showMedicalArticles = true
-        delay(300)
+        delay(300) // Delay before showing recent history label
         showRecentHistoryLabel = true
-        delay(200)
+        delay(200) // Delay before showing recent history content
         showRecentHistory = true
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Dashboard") },
+                title = { Text("Dashboard") }, // Title of the Top AppBar
                 actions = {
+                    // Profile icon in the top app bar
                     Image(
-                        painter = painterResource(id = R.drawable.baseline_person_24),
+                        painter = painterResource(id = R.drawable.baseline_person_24), // Replace with your profile icon
                         contentDescription = "Profile",
                         modifier = Modifier
                             .padding(end = 16.dp)
                             .size(36.dp)
-                            .clip(CircleShape)
+                            .clip(CircleShape) // Clip to a circle shape
                     )
                 }
             )
@@ -95,28 +100,31 @@ fun DashboardScreen() {
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(innerPadding)
-                .padding(16.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(innerPadding) // Apply padding from Scaffold
+                .padding(16.dp) // Additional padding for content
+                .fillMaxSize(), // Fill the available size
+            verticalArrangement = Arrangement.spacedBy(20.dp) // Spacing between vertical elements
         ) {
+            // Animated visibility for Service Grid
             AnimatedVisibility(
                 visible = showServiceGrid,
                 enter = slideInVertically(
-                    initialOffsetY = { -it / 2 },
+                    initialOffsetY = { -it / 2 }, // Slide in from top
                     animationSpec = tween(durationMillis = 500)
-                ) + fadeIn(animationSpec = tween(durationMillis = 500))
+                ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
             ) {
-                ServiceGrid()
+                ServiceGrid() // Composable for service cards
             }
 
+            // Animated visibility for Medical Articles
             AnimatedVisibility(
                 visible = showMedicalArticles,
                 enter = slideInHorizontally(
-                    initialOffsetX = { -it },
+                    initialOffsetX = { -it }, // Slide in from left
                     animationSpec = tween(durationMillis = 500)
-                ) + fadeIn(animationSpec = tween(durationMillis = 500))
+                ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
             ) {
+                // List of medical articles to display
                 val articles = remember {
                     listOf(
                         MedicalArticle(
@@ -134,29 +142,31 @@ fun DashboardScreen() {
                         MedicalArticle(
                             title = "Nutrition Guides",
                             subtitle = "Eat well, live long",
-                            link = "https://www.facebook.com",
+                            link = "https://www.facebook.com", // Example link
                             iconResId = R.drawable.baseline_fastfood_24
                         )
                     )
                 }
-                MedicalArticlesCard(articles = articles)
+                MedicalArticlesCard(articles = articles) // Composable for medical articles carousel
             }
 
+            // Animated visibility for "Recent History" label
             AnimatedVisibility(
                 visible = showRecentHistoryLabel,
-                enter = fadeIn(animationSpec = tween(durationMillis = 300))
+                enter = fadeIn(animationSpec = tween(durationMillis = 300)) // Simply fade in
             ) {
                 Text("Recent History", style = MaterialTheme.typography.titleMedium)
             }
 
+            // Animated visibility for Recent History content
             AnimatedVisibility(
                 visible = showRecentHistory,
                 enter = slideInVertically(
-                    initialOffsetY = { it },
+                    initialOffsetY = { it }, // Slide in from bottom
                     animationSpec = tween(durationMillis = 500)
-                ) + fadeIn(animationSpec = tween(durationMillis = 500))
+                ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
             ) {
-                RecentHistory()
+                RecentHistory() // Composable for recent history list
             }
         }
     }
@@ -164,6 +174,7 @@ fun DashboardScreen() {
 
 @Composable
 fun ServiceGrid() {
+    // List of services with their titles and Lottie animation asset names
     val services = listOf(
         Pair("X-ray Scan", "xray.json"),
         Pair("Symptom Analyzer", "search.json"),
@@ -172,15 +183,19 @@ fun ServiceGrid() {
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Arrange service cards in rows of two
         for (i in services.indices step 2) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // First service card in the row
                 ServiceCard(services[i].first, services[i].second, Modifier.weight(1f))
+                // Check if there's a second service for the row
                 if (i + 1 < services.size) {
                     ServiceCard(services[i + 1].first, services[i + 1].second, Modifier.weight(1f))
                 } else {
+                    // Add a Spacer if there's only one card in the last row
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
@@ -191,11 +206,11 @@ fun ServiceGrid() {
 @Composable
 fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(16.dp), // Rounded corners for the card
         modifier = modifier
-            .height(160.dp)
+            .height(160.dp) // Fixed height for the card
             .fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // Card shadow
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -204,20 +219,21 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
                 .padding(16.dp)
                 .fillMaxSize()
         ) {
+            // Lottie animation for the service icon
             val composition by rememberLottieComposition(LottieCompositionSpec.Asset(assetName))
-            val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
+            val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever) // Loop animation
             LottieAnimation(
                 composition,
                 progress,
-                modifier = Modifier.size(90.dp)
+                modifier = Modifier.size(90.dp) // Size of the Lottie animation
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp)) // Space between animation and text
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 minLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                overflow = TextOverflow.Ellipsis, // Ellipsize long text
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -227,24 +243,25 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
 @OptIn(ExperimentalPagerApi::class)
 @Composable
 fun MedicalArticlesCard(articles: List<MedicalArticle>) {
-    val pagerState = rememberPagerState(initialPage = 0)
+    val pagerState = rememberPagerState(initialPage = 0) // State for the horizontal pager
     val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val context = LocalContext.current // Get current context to launch intents
 
+    // Auto-scroll the pager every 5 seconds
     LaunchedEffect(pagerState) {
         while (true) {
-            delay(5000)
+            delay(5000) // Delay for 5 seconds
             val nextPage = (pagerState.currentPage + 1) % articles.size
-            pagerState.animateScrollToPage(nextPage)
+            pagerState.animateScrollToPage(nextPage) // Scroll to the next page
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF3366CC)),
+            .height(180.dp) // Fixed height for the articles card
+            .clip(RoundedCornerShape(16.dp)) // Rounded corners
+            .background(Color(0xFF3366CC)), // Background color for the card
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         HorizontalPager(
@@ -252,7 +269,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
+                .weight(1f) // Take up available vertical space
         ) { page ->
             val article = articles[page]
             Row(
@@ -266,13 +283,15 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.SpaceEvenly
                 ) {
+                    // "Explore!" text with an arrow, clickable to open the article link
                     Row(
                         modifier = Modifier.clickable {
                             try {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(article.link))
-                                context.startActivity(intent)
+                                context.startActivity(intent) // Open URL in browser
                             } catch (e: Exception) {
-                                e.printStackTrace()
+                                e.printStackTrace() // Log any errors
+                                // Optionally show a Toast message here for the user
                             }
                         },
                         verticalAlignment = Alignment.CenterVertically,
@@ -286,7 +305,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Icon(
-                            painter = painterResource(id = R.drawable.baseline_arrow_forward_24),
+                            painter = painterResource(id = R.drawable.baseline_arrow_forward_24), // Forward arrow icon
                             contentDescription = "Explore link",
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
@@ -303,6 +322,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
+                // Icon for the medical article
                 Icon(
                     painter = painterResource(id = article.iconResId),
                     contentDescription = null,
@@ -312,6 +332,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
             }
         }
 
+        // Pager indicator dots
         HorizontalPagerIndicator(
             pagerState = pagerState,
             pageCount = articles.size,
@@ -328,6 +349,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
 
 @Composable
 fun RecentHistory() {
+    // Dummy data for recent appointments
     val appointments = listOf(
         "Appointment 1: Kathmandu",
         "Appointment 2: Lalitpur",
@@ -355,7 +377,7 @@ fun RecentHistory() {
                         Text("Location details", style = MaterialTheme.typography.bodySmall)
                     }
                     Button(
-                        onClick = { /* TODO: Handle Report click */ }
+                        onClick = { /* TODO: Handle Report click */ } // Placeholder for report button action
                     ) {
                         Text("Report")
                     }
