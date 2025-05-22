@@ -27,7 +27,17 @@
         android:usesCleartextTraffic="true"
         tools:replace="android:allowBackup"
         tools:targetApi="31">
+        <activity
+            android:name=".DoctorBooking"
+            android:exported="true"
+            android:label="@string/title_activity_doctor_booking"
+            android:theme="@style/Theme.DaktarSaab">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
 
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".DashboardActivity"
             android:exported="true"
@@ -35,10 +45,10 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".ForgotPasswordActivity"
             android:exported="true"
