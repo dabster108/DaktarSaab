@@ -7,4 +7,5 @@
     <string name="title_activity_dashboard">DashboardActivity</string>
     <string name="title_activity_maps">MapsActivity</string>
     <string name="title_activity_geo_maps">GeoMapsActivity</string>
+    <string name="title_activity_chatbot">ChatbotActivity</string>
 </resources>

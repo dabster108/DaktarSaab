@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // Removed Firebase Google Services plugin: id("com.google.gms.google-services") version "4.4.1" apply false
 }
 
 // Read local.properties to get the API key
@@ -27,8 +28,12 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Expose GEOAPIFY_API_KEY from local.properties to BuildConfig
+        // Expose GEOAPIFY_API_KEY from local.properties to BuildConfig (kept as requested)
         buildConfigField("String", "GEOAPIFY_API_KEY", "\"${localProperties.getProperty("geoapifyApiKey", "6acbf75b57b74b749fd87b61351b7c77")}\"")
+
+        // Expose GROQ_API_KEY from local.properties to BuildConfig
+        // This replaces the GEMINI_API_KEY. Ensure 'groqApiKey' is in your local.properties.
+        buildConfigField("String", "GROQ_API_KEY", "\"${localProperties.getProperty("groqApiKey")}\"")
     }
 
     buildTypes {
@@ -52,7 +57,7 @@ android {
         buildConfig = true // Enable BuildConfig generation
     }
 
-    packagingOptions {
+    packaging {
         resources {
             // Exclude problematic files for ORMLite
             excludes += "com/j256/ormlite/core/README.txt"
@@ -65,8 +70,6 @@ configurations.all {
     exclude(group = "com.j256.ormlite", module = "ormlite-core")
 }
 
-
-
 dependencies {
     // --- Core Compose Dependencies (Managed by BOM for consistency) ---
     implementation(platform("androidx.compose:compose-bom:2024.05.00"))
@@ -77,16 +80,34 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.animation:animation")
+    implementation("androidx.compose.animation:animation") // For animations like animateContentSize
 
     // --- Other AndroidX Dependencies ---
     implementation("androidx.activity:activity-compose:1.9.0")
 
-    // --- Third-Party Libraries ---
+    // REMOVED: Gemini API SDK - implementation("com.google.generativeai:generativeai:0.7.0")
+
+    // ViewModel for Compose
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    // Lifecycle runtime ktx for viewModelScope
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+
+    // --- Networking Libraries for Groq API ---
+    // Added Retrofit and GSON for making HTTP requests to Groq API
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0") // For JSON parsing
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") // For logging network requests in Logcat
+
+    // Removed Firebase Dependencies for Persistence
+    // implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
+    // implementation("com.google.firebase:firebase-firestore-ktx")
+    // implementation("com.google.firebase:firebase-auth-ktx")
+
+    // --- Third-Party Libraries (OSMDroid and Location kept as requested) ---
     // OSMDroid for maps
     implementation("org.osmdroid:osmdroid-android:6.1.18")
 
-    // Google Play Services for location
+    // Google Play Services for location (kept as requested)
     implementation("com.google.android.gms:play-services-location:21.2.0")
 
     // Accompanist permissions
@@ -123,7 +144,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    // --- Specific OSMDroid modules ---
+    // --- Specific OSMDroid modules (kept as requested) ---
     implementation("org.osmdroid:osmdroid-mapsforge:6.1.18")
     implementation("org.osmdroid:osmdroid-geopackage:6.1.18")
 }
