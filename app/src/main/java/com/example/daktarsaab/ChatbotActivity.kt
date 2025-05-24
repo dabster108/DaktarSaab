@@ -1,11 +1,12 @@
 package com.example.daktarsaab
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,9 +31,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
-import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import retrofit2.Response
@@ -43,11 +49,10 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
-import androidx.compose.ui.res.painterResource // Import for painterResource
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.filled.ArrowBack // Import for the back arrow icon
 
-// --- Groq API Data Classes ---
-
-// Request Data Classes
+// --- Data Classes ---
 data class GroqChatCompletionRequest(
     val model: String,
     val messages: List<GroqMessage>
@@ -58,7 +63,6 @@ data class GroqMessage(
     val content: String
 )
 
-// Response Data Classes
 data class GroqChatCompletionResponse(
     val id: String,
     val choices: List<Choice>,
@@ -73,7 +77,7 @@ data class Choice(
     val finish_reason: String,
     val index: Int,
     val message: GroqMessage,
-    val logprobs: Any? // Can be null
+    val logprobs: Any?
 )
 
 data class Usage(
@@ -82,7 +86,7 @@ data class Usage(
     val total_tokens: Int
 )
 
-// Retrofit Service Interface
+// --- Retrofit Service ---
 interface GroqApiService {
     @POST("openai/v1/chat/completions")
     suspend fun getChatCompletion(
@@ -91,13 +95,11 @@ interface GroqApiService {
     ): Response<GroqChatCompletionResponse>
 }
 
-// --- ChatbotActivity ---
+// --- Chatbot Activity ---
 class ChatbotActivity : ComponentActivity() {
-
-    // Initialize Retrofit service here, using lazy initialization for efficiency
     private val groqApiService: GroqApiService by lazy {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY // Log request and response bodies for debugging
+            level = HttpLoggingInterceptor.Level.BODY
         }
 
         val client = OkHttpClient.Builder()
@@ -105,161 +107,274 @@ class ChatbotActivity : ComponentActivity() {
             .build()
 
         Retrofit.Builder()
-            .baseUrl("https://api.groq.com/") // Base URL for the Groq API
-            .client(client) // Custom OkHttpClient with logging
-            .addConverterFactory(GsonConverterFactory.create()) // Converter for JSON serialization/deserialization
+            .baseUrl("https://api.groq.com/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(GroqApiService::class.java) // Create the Retrofit service instance
+            .create(GroqApiService::class.java)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        enableEdgeToEdge() // Enables edge-to-edge display for a modern look
+        enableEdgeToEdge()
         setContent {
             DaktarSaabTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ChatScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        groqApiService = groqApiService
-                    )
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    ChatScreen(groqApiService = groqApiService)
                 }
             }
         }
     }
 }
 
+// --- Composable Components ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService) {
     val coroutineScope = rememberCoroutineScope()
+    val systemPrompt = """
+        You are MedGuide, an AI-powered medical assistant. You can answer health-related questions, provide general medical advice, and help users understand symptoms. Always remind users that your advice does not replace a real doctor's consultation. Be empathetic, concise, and clear. If a question is outside your scope, suggest seeing a healthcare professional.
+    """.trimIndent()
 
-    // State for the current chat messages (in-memory only)
-    // Chat history will be cleared when the app is closed or activity is recreated
     val messages = remember { mutableStateListOf<GroqMessage>() }
-    // State to hold the current text in the input field
     var inputText by remember { mutableStateOf("") }
-    // State to indicate if an API call is in progress
     var isLoading by remember { mutableStateOf(false) }
+    var showAnimations by remember { mutableStateOf(false) } // State to trigger entry animations
 
-    // Add an initial greeting message from the AI when the screen is first composed
+    // Lottie animation for the fixed top section
+    val doctorBotComposition by rememberLottieComposition(LottieCompositionSpec.Asset("doctorbot.json"))
+    val doctorBotProgress by animateLottieCompositionAsState(
+        composition = doctorBotComposition,
+        iterations = LottieConstants.IterateForever // Loop continuously
+    )
+
+    // Trigger animations when the screen is first composed
     LaunchedEffect(Unit) {
-        messages.add(GroqMessage(role = "assistant", content = "Hello! How can I help you today?"))
+        showAnimations = true
+        if (messages.isEmpty()) {
+            // Initialize chat with system prompt and assistant's greeting
+            messages.add(GroqMessage(role = "system", content = systemPrompt))
+            messages.add(GroqMessage(role = "assistant", content = "Hello! I'm MedGuide, your AI medical assistant. How can I help you today?"))
+        }
     }
 
-    // Function to clear current chat messages (in-memory only)
-    val clearCurrentChat: () -> Unit = {
+    val clearCurrentChat = {
         messages.clear()
-        messages.add(GroqMessage(role = "assistant", content = "Hello! How can I help you today?")) // Re-add initial message
-        Log.d("ChatScreen", "Current chat cleared (in-memory).")
+        messages.add(GroqMessage(role = "system", content = systemPrompt))
+        messages.add(GroqMessage(role = "assistant", content = "Hello! I'm MedGuide, your AI medical assistant. How can I help you today?"))
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // Top App Bar with Clear Chat button
-        TopAppBar(
-            title = { Text("DaktarSaab Chatbot") },
-            actions = {
-                IconButton(onClick = { clearCurrentChat() }) { // Clear chat button
-                    Icon(Icons.Default.Clear, contentDescription = "Clear Chat")
-                }
-            }
-        )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    AnimatedVisibility(
+                        visible = showAnimations,
+                        enter = slideInHorizontally(animationSpec = tween(durationMillis = 500)) { initialOffset -> initialOffset } // Slide in from left
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween, // Space between elements
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Back Arrow Icon - No functionality for now
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp)) // Spacer between arrow and profile
 
-        // Chat messages display area (scrollable)
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f) // Takes up all available vertical space
-                .padding(horizontal = 8.dp)
-                .fillMaxWidth(),
-            reverseLayout = true, // New messages appear at the bottom
-            verticalArrangement = Arrangement.Bottom // Align content to the bottom
-        ) {
-            items(messages.reversed()) { message -> // Display messages from current session
-                MessageBubble(message = message)
-            }
-        }
-
-        // Loading indicator
-        if (isLoading) {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp)
-            )
-        }
-
-        // Input field and send button
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
-                label = { Text("Ask me anything") }, // Updated label
-                placeholder = { Text("What can I help with?") }, // Updated placeholder
-                modifier = Modifier.weight(1f), // Takes up most of the row space
-                shape = RoundedCornerShape(24.dp), // Rounded corners for a modern look
-                colors = TextFieldDefaults.outlinedTextFieldColors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                    cursorColor = MaterialTheme.colorScheme.primary
-                )
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            FloatingActionButton(
-                onClick = {
-                    if (inputText.isNotBlank() && !isLoading) {
-                        val userMessageContent = inputText.trim()
-                        val userMessage = GroqMessage(role = "user", content = userMessageContent)
-                        messages.add(userMessage) // Add user message to in-memory list
-                        inputText = "" // Clear input field immediately
-                        isLoading = true // Show loading indicator
-
-                        coroutineScope.launch(Dispatchers.IO) {
-                            try {
-                                val apiKey = BuildConfig.GROQ_API_KEY
-                                val request = GroqChatCompletionRequest(
-                                    model = "llama3-8b-8192", // Using a suitable Groq model
-                                    messages = messages.toList() // Send all current messages as context
+                            // Dikshanta profile, now bolded and black color
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f), // Takes remaining space
+                                horizontalArrangement = Arrangement.End // Aligns profile to the end
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Profile",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                            CircleShape
+                                        )
+                                        .padding(6.dp)
                                 )
-
-                                val response = groqApiService.getChatCompletion(
-                                    authorization = "Bearer $apiKey",
-                                    request = request
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Dikshanta",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), // Made bold
+                                    color = Color.Black // Changed text color to black
                                 )
-
-                                if (response.isSuccessful) {
-                                    val chatResponse = response.body()
-                                    val assistantMessageContent = chatResponse?.choices?.firstOrNull()?.message?.content
-                                    // Remove markdown formatting (basic removal for *, **)
-                                    val cleanedMessage = assistantMessageContent?.replace(Regex("[*_]"), "")?.trim()
-                                    val assistantMessage = GroqMessage(role = "assistant", content = cleanedMessage ?: "No response from AI.")
-                                    messages.add(assistantMessage) // Add AI response to in-memory list
-                                    Log.d("GroqChatbot", "Groq API Response: $cleanedMessage")
-                                } else {
-                                    val errorBody = response.errorBody()?.string()
-                                    val errorMessage = GroqMessage(role = "assistant", content = "Error: ${response.code()} - ${errorBody}")
-                                    messages.add(errorMessage) // Add error message to in-memory list
-                                    Log.e("GroqChatbot", "Groq API Error: ${response.code()} - $errorBody")
-                                }
-                            } catch (e: Exception) {
-                                val errorMessage = GroqMessage(role = "assistant", content = "Network error: ${e.message}")
-                                messages.add(errorMessage) // Add network error message to in-memory list
-                                Log.e("GroqChatbot", "Error making Groq API request", e)
-                            } finally {
-                                isLoading = false // Hide loading indicator
+                                Spacer(modifier = Modifier.width(16.dp)) // Padding from edge
                             }
                         }
                     }
                 },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(50) // Circular button
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface // Use surface for cleaner look
+                )
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // Fixed Lottie animation section (doctorbot.json) with slide-in from top
+            AnimatedVisibility(
+                visible = showAnimations,
+                enter = slideInVertically(animationSpec = tween(durationMillis = 500, delayMillis = 200)) { fullHeight -> -fullHeight } // Slide in from top, slightly delayed
             ) {
-                Icon(Icons.Filled.Send, contentDescription = "Send message")
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp), // Adjusted vertical padding for visual centering
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center // Center vertically in its own column
+                ) {
+                    LottieAnimation(
+                        composition = doctorBotComposition,
+                        progress = { doctorBotProgress },
+                        modifier = Modifier.size(200.dp) // Maintain a larger size for prominence
+                    )
+                    Spacer(modifier = Modifier.height(16.dp)) // Space between animation and text
+                    Text(
+                        text = "Welcome to DaktarSaab Medical Chatbot",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold // Make welcome text bold
+                    )
+                }
+            }
+            // HorizontalDivider removed as requested
+
+            // Spacer after the fixed section (no divider)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Chat messages display area - takes remaining space and scrolls
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f) // This makes it take all available vertical space
+                    .padding(horizontal = 8.dp),
+                reverseLayout = true, // New messages appear at the bottom
+                verticalArrangement = Arrangement.Bottom // Keeps content aligned to the bottom
+            ) {
+                // Filter out the system message from display
+                items(messages.reversed().filter { it.role != "system" }) { message ->
+                    MessageBubble(message = message)
+                }
+            }
+
+            // Loading indicator at the bottom, just above input field
+            if (isLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .padding(horizontal = 8.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp)) // Small space after loading indicator
+
+            // Input Area
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    label = { Text("Ask me anything") },
+                    placeholder = { Text("Type your question...") },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    )
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Clear Chat button moved next to the text field
+                IconButton(
+                    onClick = { clearCurrentChat() },
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer), // A different color for clear
+                    enabled = !isLoading // Disable clear button while loading
+                ) {
+                    Icon(
+                        Icons.Default.Clear,
+                        contentDescription = "Clear Chat",
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp)) // Space between clear and send
+
+                // Send button
+                IconButton(
+                    onClick = {
+                        if (inputText.isNotBlank() && !isLoading) {
+                            val userMessage = GroqMessage(role = "user", content = inputText.trim())
+                            messages.add(userMessage)
+                            inputText = ""
+                            isLoading = true
+
+                            coroutineScope.launch(Dispatchers.IO) {
+                                try {
+                                    val apiKey = BuildConfig.GROQ_API_KEY
+                                    // Use current list including system prompt for API call
+                                    val currentMessagesForApi = messages.toList()
+                                    val request = GroqChatCompletionRequest(
+                                        model = "llama3-8b-8192",
+                                        messages = currentMessagesForApi
+                                    )
+
+                                    val response = groqApiService.getChatCompletion(
+                                        "Bearer $apiKey",
+                                        request
+                                    )
+
+                                    if (response.isSuccessful) {
+                                        val assistantMessage = response.body()?.choices?.firstOrNull()?.message
+                                        assistantMessage?.let {
+                                            // Add assistant's response, stripping common markdown for cleaner display
+                                            messages.add(it.copy(content = it.content.replace(Regex("[*_`~]"), "")))
+                                        }
+                                    } else {
+                                        messages.add(GroqMessage(role = "assistant", content = "Sorry, I couldn't process your request. Please try again. Error: ${response.code()}"))
+                                    }
+                                } catch (e: Exception) {
+                                    messages.add(GroqMessage(role = "assistant", content = "An error occurred: ${e.localizedMessage}"))
+                                } finally {
+                                    isLoading = false
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    enabled = !isLoading // Disable button while loading to prevent multiple sends
+                ) {
+                    Icon(
+                        Icons.Default.Send,
+                        contentDescription = "Send",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
             }
         }
     }
@@ -269,130 +384,88 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService) {
 fun MessageBubble(message: GroqMessage) {
     val isUser = message.role == "user"
     val bubbleColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val textColor = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val textColor = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+
+    // Lottie Animation for AI (robot.json)
+    val robotComposition by rememberLottieComposition(LottieCompositionSpec.Asset("robot.json"))
+    val robotProgress by animateLottieCompositionAsState(
+        composition = robotComposition,
+        iterations = LottieConstants.IterateForever
+    )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .animateContentSize(), // Smooth animation for size changes
+            .padding(vertical = 8.dp),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Bottom // Align content to bottom if bubbles are different heights
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Chatbot icon for assistant messages
+        // Show robot Lottie for assistant messages
         if (!isUser) {
-            Icon(
-                // Changed from Icons.Default.SmartToy to painterResource for custom drawable
-                painter = painterResource(id = R.drawable.baseline_personal_injury_24),
-                contentDescription = "Chatbot Icon",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
-                    .padding(4.dp)
-                    .align(Alignment.Bottom) // Align icon to bottom of bubble
+            LottieAnimation(
+                composition = robotComposition,
+                progress = { robotProgress },
+                modifier = Modifier.size(48.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
 
         Card(
-            modifier = Modifier
-                .widthIn(max = 300.dp) // Limit bubble width
-                .align(Alignment.Bottom), // Align text to bottom of bubble
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
                 bottomStart = if (isUser) 16.dp else 4.dp,
                 bottomEnd = if (isUser) 4.dp else 16.dp
             ),
-            colors = CardDefaults.cardColors(containerColor = bubbleColor)
+            colors = CardDefaults.cardColors(containerColor = bubbleColor),
+            modifier = Modifier.widthIn(max = 300.dp)
         ) {
             Text(
                 text = message.content,
                 color = textColor,
-                modifier = Modifier.padding(10.dp)
+                modifier = Modifier.padding(16.dp)
             )
         }
 
-        // User icon for user messages
+        // Show person icon for user messages
         if (isUser) {
             Spacer(modifier = Modifier.width(8.dp))
             Icon(
-                imageVector = Icons.Default.Person, // Using Person for user
-                contentDescription = "User Icon",
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                Icons.Default.Person,
+                contentDescription = "User",
                 modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
-                    .padding(4.dp)
-                    .align(Alignment.Bottom) // Align icon to bottom of bubble
+                    .size(48.dp)
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        CircleShape
+                    )
+                    .padding(6.dp), // Adjust padding within the circle
+                tint = MaterialTheme.colorScheme.primary
             )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
-fun ChatbotPreview() {
+fun ChatPreview() {
     DaktarSaabTheme {
-        // For preview, we can't make real network calls.
-        // Provide a dummy implementation of ChatScreen for visual preview.
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                TopAppBar(
-                    title = { Text("DaktarSaab Chatbot") },
-                    actions = {
-                        IconButton(onClick = { /* Preview: Do nothing */ }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear Chat")
-                        }
-                    }
-                )
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp)
-                        .fillMaxWidth(),
-                    reverseLayout = true,
-                    verticalArrangement = Arrangement.Bottom
-                ) {
-                    items(listOf(
-                        GroqMessage(role = "assistant", content = "Hello! How can I help you today?"),
-                        GroqMessage(role = "user", content = "Tell me about AI."),
-                        GroqMessage(role = "assistant", content = "Artificial intelligence (AI) is a rapidly evolving field of computer science that aims to create machines capable of intelligent behavior. It involves developing systems that can perform tasks that typically require human intelligence, such as learning, problem-solving, decision-making, perception, and language understanding."),
-                        GroqMessage(role = "user", content = "That's interesting! What are some applications of AI?")
-                    ).reversed()) { message ->
-                        MessageBubble(message = message)
-                    }
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = "Preview message",
-                        onValueChange = { /* Do nothing */ },
-                        label = { Text("Ask me anything") },
-                        placeholder = { Text("What can I help with?") },
-                        modifier = Modifier.weight(1f),
-                        enabled = false, // Disable input in preview
-                        shape = RoundedCornerShape(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    FloatingActionButton(
-                        onClick = { /* Do nothing */ },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        shape = RoundedCornerShape(50)
-                    ) {
-                        Icon(Icons.Filled.Send, contentDescription = "Send message")
-                    }
-                }
-            }
-        }
+        ChatScreen(groqApiService = object : GroqApiService {
+            override suspend fun getChatCompletion(p0: String, p1: GroqChatCompletionRequest) =
+                Response.success(GroqChatCompletionResponse(
+                    id = "test",
+                    choices = listOf(Choice(
+                        finish_reason = "stop",
+                        index = 0,
+                        message = GroqMessage("assistant", "Sample response from MedGuide! Always consult a doctor for medical advice."),
+                        logprobs = null
+                    )),
+                    created = 0,
+                    model = "test",
+                    system_fingerprint = null,
+                    `object` = "test",
+                    usage = Usage(0, 0, 0)
+                ))
+        })
     }
 }
