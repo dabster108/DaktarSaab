@@ -96,7 +96,8 @@ dependencies {
     // Added Retrofit and GSON for making HTTP requests to Groq API
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0") // For JSON parsing
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") // For logging network requests in Logcat
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")// For logging network requests in Logcat
 
     // Removed Firebase Dependencies for Persistence
     // implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
