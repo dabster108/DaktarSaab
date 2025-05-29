@@ -8,4 +8,6 @@
     <string name="title_activity_maps">MapsActivity</string>
     <string name="title_activity_geo_maps">GeoMapsActivity</string>
     <string name="title_activity_chatbot">ChatbotActivity</string>
+    <string name="title_activity_reminder">ReminderActivity</string>
+    <string name="title_activity_main2">MainActivity2</string>
 </resources>

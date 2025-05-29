@@ -17,12 +17,12 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "com.example.daktarsaab"
-    compileSdk = 35
+    compileSdk = 35 // Already set to 35, which is good for notifications
 
     defaultConfig {
         applicationId = "com.example.daktarsaab"
         minSdk = 27
-        targetSdk = 35
+        targetSdk = 35 // Already set to 35, which is good for notifications
         versionCode = 1
         versionName = "1.0"
 

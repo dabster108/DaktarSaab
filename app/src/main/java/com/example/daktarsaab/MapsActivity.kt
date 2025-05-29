@@ -8,8 +8,10 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -42,9 +44,13 @@ import org.osmdroid.views.overlay.Polyline
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Query
+import retrofit2.http.Body
 import org.osmdroid.util.BoundingBox
 import android.graphics.Color as AndroidColor
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 
 // --- Geoapify Data Classes (Autocomplete) ---
 data class GeoapifyAutocompleteResponse(val features: List<GeoapifyFeature>)
@@ -165,6 +171,46 @@ data class IpCountry(val name: String?, val iso_code: String?)
 data class IpContinent(val name: String?, val code: String?)
 data class IpLocation(val latitude: Double?, val longitude: Double?)
 
+// --- Geoapify Data Classes (Route Planner API) ---
+data class RoutePlannerRequest(
+    val mode: String,
+    val agents: List<RoutePlannerAgent>,
+    val jobs: List<RoutePlannerJob>
+)
+
+data class RoutePlannerAgent(
+    val start_location: List<Double>, // [longitude, latitude]
+    val end_location: List<Double>,   // [longitude, latitude]
+    val pickup_capacity: Int? = null,
+    val name: String? = null
+)
+
+data class RoutePlannerJob(
+    val id: String, // Jobs typically require an ID for referencing in the response
+    val location: List<Double>, // [longitude, latitude]
+    val duration: Int? = null,          // in seconds
+    val pickup_amount: Int? = null
+)
+
+data class RoutePlannerResponse(
+    val type: String, // Should be "FeatureCollection"
+    val features: List<RoutePlannerAgentRouteFeature>
+)
+
+data class RoutePlannerAgentRouteFeature(
+    val type: String, // Should be "Feature"
+    val properties: RoutePlannerAgentRouteProperties,
+    val geometry: RouteGeometry // Reusing existing RouteGeometry
+)
+
+data class RoutePlannerAgentRouteProperties(
+    val agent_name: String?,
+    val agent_id: String?,
+    val distance: Double?,
+    val time: Double?,
+    val jobs_order: List<String>? // List of Job IDs
+)
+
 // --- Geoapify Service Interface ---
 interface GeoapifyService {
     @GET("v1/geocode/autocomplete")
@@ -215,6 +261,12 @@ interface GeoapifyService {
         @Query("ip") ip: String? = null,
         @Query("apiKey") apiKey: String
     ): IpGeolocationResponse
+
+    @POST("v1/routeplanner")
+    suspend fun planComplexRoute(
+        @Query("apiKey") apiKey: String,
+        @Body body: RoutePlannerRequest
+    ): RoutePlannerResponse
 
     companion object {
         fun create(): GeoapifyService {
@@ -306,6 +358,109 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
 
     val geoapifyService = remember { GeoapifyService.create() }
 
+    // Function to display route - Added to fix unresolved reference errors
+    suspend fun displayRoute(
+        startPoint: GeoPoint,
+        endPoint: GeoPoint,
+        geometry: RouteGeometry,
+        rawCoords: List<Any>,
+        startAddress: String,
+        endAddress: String
+    ) = withContext(Dispatchers.Main) {
+        try {
+            // Clear any existing route
+            mapViewRef?.let { mapView ->
+                routePolyline?.let { mapView.overlays.remove(it) }
+                startMarkerState?.let { mapView.overlays.remove(it) }
+                endMarkerState?.let { mapView.overlays.remove(it) }
+            }
+
+            // Process route coordinates based on geometry type
+            val routePoints = mutableListOf<GeoPoint>()
+
+            when (geometry.type) {
+                "LineString" -> {
+                    // Format: [[lon1,lat1], [lon2,lat2], ...]
+                    (rawCoords as? List<*>)?.forEach { point ->
+                        (point as? List<*>)?.let {
+                            if (it.size >= 2 && it[0] is Number && it[1] is Number) {
+                                val lon = (it[0] as Number).toDouble()
+                                val lat = (it[1] as Number).toDouble()
+                                routePoints.add(GeoPoint(lat, lon))
+                            }
+                        }
+                    }
+
+                    // Debug logging for first element of raw coordinates
+                    if (rawCoords.isNotEmpty()) {
+                        Log.d("MedicalMapScreen", "First element of RawCoords class: ${rawCoords.first()!!::class.java.name}")
+                        if (rawCoords.first() is List<*> && (rawCoords.first() as List<*>).isNotEmpty()){
+                            Log.d("MedicalMapScreen", "First element of first inner list class: ${(rawCoords.first() as List<*>).first()!!::class.java.name}")
+                        }
+                    }
+                }
+                "MultiLineString" -> {
+                    // Format: [[[lon1,lat1], [lon2,lat2], ...], [...]]
+                    (rawCoords as? List<*>)?.forEach { segment ->
+                        (segment as? List<*>)?.forEach { point ->
+                            (point as? List<*>)?.let {
+                                if (it.size >= 2 && it[0] is Number && it[1] is Number) {
+                                    val lon = (it[0] as Number).toDouble()
+                                    val lat = (it[1] as Number).toDouble()
+                                    routePoints.add(GeoPoint(lat, lon))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (routePoints.size >= 2) {
+                // Create the route polyline
+                val polyline = Polyline().apply {
+                    setPoints(routePoints)
+                    outlinePaint.color = AndroidColor.parseColor("#2196F3") // Blue color
+                    outlinePaint.strokeWidth = 10f
+                }
+
+                // Create start and end markers
+                val startMarker = Marker(mapViewRef).apply {
+                    position = startPoint
+                    title = "Start: $startAddress"
+                    icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                }
+
+                val endMarker = Marker(mapViewRef).apply {
+                    position = endPoint
+                    title = "Destination: $endAddress"
+                    icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_directions)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                }
+
+                // Add everything to map
+                mapViewRef?.overlays?.add(polyline)
+                mapViewRef?.overlays?.add(startMarker)
+                mapViewRef?.overlays?.add(endMarker)
+
+                // Save references
+                routePolyline = polyline
+                startMarkerState = startMarker
+                endMarkerState = endMarker
+
+                // Zoom to show the entire route
+                val boundingBox = BoundingBox.fromGeoPoints(routePoints)
+                mapViewRef?.zoomToBoundingBox(boundingBox.increaseByScale(1.2f), true, 100)
+
+                mapViewRef?.invalidate()
+            } else {
+                Log.e("MedicalMapScreen", "Route has too few points to display")
+            }
+        } catch (e: Exception) {
+            Log.e("MedicalMapScreen", "Error displaying route: ${e.message}", e)
+        }
+    }
+
     LaunchedEffect(permissionSignal) {
         Log.d("MedicalMapScreen", "LaunchedEffect for permission triggered. Signal: $permissionSignal")
         if (ActivityCompat.checkSelfPermission(
@@ -371,7 +526,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                 }
                 placeMarkers = emptyList()
 
-                val categoryMapping = mapOf<String, String>(
+                val categoryMapping = mapOf(
                     "Hospitals" to "healthcare.hospital",
                     "Pharmacies" to "healthcare.pharmacy",
                     "Clinics" to "healthcare.clinic",
@@ -471,7 +626,50 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
         topBar = {
             if (!isFullscreen) {
                 TopAppBar(
-                    title = { Text("Doctor Saab Maps") }
+                    title = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Back Arrow Icon
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_arrow_left_24),
+                                contentDescription = "Back",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            // Profile with name
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_person_24),
+                                    contentDescription = "Profile",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            shape = CircleShape
+                                        )
+                                        .padding(8.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Dikshanta",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
                 )
             }
         }
@@ -569,119 +767,77 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                                         val endPoint = endResult.features.firstOrNull()?.geometry?.coordinates?.let { GeoPoint(it[1], it[0]) }
 
                                         if (startPoint != null && endPoint != null) {
-                                            val waypoints = "${startPoint.latitude},${startPoint.longitude}|${endPoint.latitude},${endPoint.longitude}"
-                                            Log.d("MedicalMapScreen", "Fetching route for waypoints: $waypoints")
-                                            val routeResult = geoapifyService.getRoute(waypoints = waypoints, mode = "drive", apiKey = geoapifyApiKey)
+                                            // Try simple routing API first
+                                            try {
+                                                val waypoints = "${startPoint.latitude},${startPoint.longitude}|${endPoint.latitude},${endPoint.longitude}"
+                                                val routeResult = geoapifyService.getRoute(
+                                                    waypoints = waypoints,
+                                                    mode = "drive",
+                                                    apiKey = geoapifyApiKey
+                                                )
 
-                                            val feature = routeResult.features.firstOrNull()
-                                            val geometry = feature?.geometry
-                                            val rawCoords = geometry?.coordinates // This is List<Any>?
-
-                                            if (geometry != null && rawCoords != null) {
-                                                val geometryType = geometry.type
-                                                val routePoints = mutableListOf<GeoPoint>()
-
-                                                Log.d("MedicalMapScreen", "Attempting to parse route geometry. Type: $geometryType")
-
-                                                try {
-                                                    when (geometryType) {
-                                                        "MultiLineString" -> {
-                                                            (rawCoords as? List<List<List<Double>>>)?.forEach { segment ->
-                                                                segment.forEach { pair ->
-                                                                    if (pair.size == 2) {
-                                                                        routePoints.add(GeoPoint(pair[1], pair[0])) // Geoapify is [lon, lat]
-                                                                    } else {
-                                                                        Log.w("MedicalMapScreen", "Invalid coordinate pair in MultiLineString segment: $pair")
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                        "LineString" -> {
-                                                            (rawCoords as? List<List<Double>>)?.forEach { pair ->
-                                                                if (pair.size == 2) {
-                                                                    routePoints.add(GeoPoint(pair[1], pair[0])) // Geoapify is [lon, lat]
-                                                                } else {
-                                                                    Log.w("MedicalMapScreen", "Invalid coordinate pair in LineString: $pair")
-                                                                }
-                                                            }
-                                                        }
-                                                        else -> {
-                                                            Log.e("MedicalMapScreen", "Unknown or null geometry type: $geometryType. Raw coords: $rawCoords")
-                                                        }
-                                                    }
-                                                } catch (e: ClassCastException) {
-                                                    Log.e("MedicalMapScreen", "Error parsing route coordinates due to ClassCastException: ${e.message}. Raw coords: $rawCoords", e)
-                                                }
-
-                                                Log.d("MedicalMapScreen", "Parsed ${routePoints.size} route points.")
-
-                                                if (routePoints.size >= 2) {
-                                                    val newRoutePolyline = Polyline().apply {
-                                                        this.points.addAll(routePoints)
-                                                        color = AndroidColor.BLUE
-                                                        width = 8f
-                                                    }
-                                                    withContext(Dispatchers.Main) {
-                                                        // Clear previous route and its markers first from map overlays
-                                                        routePolyline?.let { mapViewRef?.overlays?.remove(it) }
-                                                        startMarkerState?.let { mapViewRef?.overlays?.remove(it) }
-                                                        endMarkerState?.let { mapViewRef?.overlays?.remove(it) }
-
-                                                        // Add new route polyline to map
-                                                        mapViewRef?.overlays?.add(newRoutePolyline)
-                                                        // Update state
-                                                        routePolyline = newRoutePolyline
-
-                                                        // Create and add new start marker
-                                                        val newStartMarker = Marker(mapViewRef).apply {
-                                                            position = startPoint
-                                                            title = "Start: $startSearchQuery"
-                                                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                                            // Optionally, add a specific icon for route start/end
-                                                        }
-                                                        mapViewRef?.overlays?.add(newStartMarker)
-                                                        startMarkerState = newStartMarker // Update state
-
-                                                        // Create and add new end marker
-                                                        val newEndMarker = Marker(mapViewRef).apply {
-                                                            position = endPoint
-                                                            title = "Destination: $destinationSearchQuery"
-                                                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                                        }
-                                                        mapViewRef?.overlays?.add(newEndMarker)
-                                                        endMarkerState = newEndMarker // Update state
-
-                                                        Log.d("MedicalMapScreen", "Route polyline and markers added to map.")
-                                                        val boundingBox = BoundingBox.fromGeoPoints(routePoints)
-                                                        mapViewRef?.zoomToBoundingBox(boundingBox.increaseByScale(1.2f), true, 100)
-                                                        mapViewRef?.invalidate()
-                                                    }
+                                                val routeFeature = routeResult.features.firstOrNull()
+                                                if (routeFeature != null && routeFeature.geometry.coordinates != null) {
+                                                    // Process and display the route
+                                                    displayRoute(
+                                                        startPoint = startPoint,
+                                                        endPoint = endPoint,
+                                                        geometry = routeFeature.geometry,
+                                                        rawCoords = routeFeature.geometry.coordinates ?: emptyList(),
+                                                        startAddress = startSearchQuery,
+                                                        endAddress = destinationSearchQuery
+                                                    )
                                                 } else {
-                                                    Log.e("MedicalMapScreen", "Not enough route points (${routePoints.size}) to draw polyline. Clearing old route.")
-                                                    withContext(Dispatchers.Main) {
-                                                        routePolyline?.let { mapViewRef?.overlays?.remove(it) }
-                                                        routePolyline = null // Clear from state
-                                                        // Decide if start/end markers should also be cleared if no route line
-                                                        // startMarkerState?.let { mapViewRef?.overlays?.remove(it); startMarkerState = null }
-                                                        // endMarkerState?.let { mapViewRef?.overlays?.remove(it); endMarkerState = null }
-                                                        mapViewRef?.invalidate()
-                                                    }
+                                                    throw Exception("No route geometry found in API response")
                                                 }
-                                            } else {
-                                                Log.e("MedicalMapScreen", "No route geometry or coordinates found in API response.")
-                                                withContext(Dispatchers.Main) {
-                                                    routePolyline?.let { mapViewRef?.overlays?.remove(it) }
-                                                    routePolyline = null // Clear from state
-                                                    mapViewRef?.invalidate()
+                                            } catch (e: Exception) {
+                                                Log.e("MedicalMapScreen", "Simple routing failed: ${e.message}. Falling back to route planner API", e)
+
+                                                // Fallback to route planner API
+                                                val routePlannerRequest = RoutePlannerRequest(
+                                                    mode = "drive",
+                                                    agents = listOf(
+                                                        RoutePlannerAgent(
+                                                            start_location = listOf(startPoint.longitude, startPoint.latitude),
+                                                            end_location = listOf(endPoint.longitude, endPoint.latitude),
+                                                            pickup_capacity = 4,
+                                                            name = "driver1"
+                                                        )
+                                                    ),
+                                                    jobs = listOf(
+                                                        RoutePlannerJob(
+                                                            id = "destination",
+                                                            location = listOf(endPoint.longitude, endPoint.latitude),
+                                                            duration = 300,
+                                                            pickup_amount = 1
+                                                        )
+                                                    )
+                                                )
+
+                                                val routePlannerResponse = geoapifyService.planComplexRoute(
+                                                    apiKey = geoapifyApiKey,
+                                                    body = routePlannerRequest
+                                                )
+
+                                                val plannerFeature = routePlannerResponse.features.firstOrNull()
+                                                if (plannerFeature != null && plannerFeature.geometry.coordinates != null) {
+                                                    displayRoute(
+                                                        startPoint = startPoint,
+                                                        endPoint = endPoint,
+                                                        geometry = plannerFeature.geometry,
+                                                        rawCoords = plannerFeature.geometry.coordinates ?: emptyList(),
+                                                        startAddress = startSearchQuery,
+                                                        endAddress = destinationSearchQuery
+                                                    )
+                                                } else {
+                                                    Log.e("MedicalMapScreen", "No route found with route planner API")
                                                 }
                                             }
                                         } else {
-                                            Log.e("MedicalMapScreen", "Could not geocode start or end point for routing.")
-                                            // Optionally, inform user via Toast or Dialog
+                                            Log.e("MedicalMapScreen", "Could not geocode start or end point")
                                         }
                                     } catch (e: Exception) {
                                         Log.e("MedicalMapScreen", "Error during route search: ${e.message}", e)
-                                        // Optionally, show a toast or dialog to the user
                                     }
                                 }
                             },
@@ -843,40 +999,60 @@ fun CategorySelection(
     onCategorySelected: (String) -> Unit
 ) {
     val categories = listOf("Hospitals", "Pharmacies", "Clinics", "Gas Stations")
+    val rowSize = 2 // Number of items per row
 
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text("Find Nearby:", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            categories.take(2).forEach { category ->
-                ElevatedButton(
-                    onClick = { onCategorySelected(category) },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.elevatedButtonColors(
-                        containerColor = if (selectedCategory == category) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = if (selectedCategory == category) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+        Text(
+            text = "Find Nearby:",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // Display categories in rows with rowSize items per row
+        categories.chunked(rowSize).forEachIndexed { index, rowCategories ->
+            if (index > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowCategories.forEach { category ->
+                    CategoryButton(
+                        category = category,
+                        isSelected = selectedCategory == category,
+                        onClick = { onCategorySelected(category) },
+                        modifier = Modifier.weight(1f)
                     )
-                ) {
-                    Text(category, maxLines = 1)
+                }
+
+                // Add placeholders for incomplete rows to maintain layout
+                repeat(rowSize - rowCategories.size) {
+                    Box(modifier = Modifier.weight(1f))
                 }
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            categories.drop(2).forEach { category ->
-                ElevatedButton(
-                    onClick = { onCategorySelected(category) },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.elevatedButtonColors(
-                        containerColor = if (selectedCategory == category) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = if (selectedCategory == category) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    Text(category, maxLines = 1)
-                }
-            }
-        }
+    }
+}
+
+@Composable
+private fun CategoryButton(
+    category: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ElevatedButton(
+        onClick = onClick,
+        modifier = modifier,
+        colors = ButtonDefaults.elevatedButtonColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    ) {
     }
 }
 
