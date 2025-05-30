@@ -84,6 +84,8 @@ dependencies {
 
     // --- Other AndroidX Dependencies ---
     implementation("androidx.activity:activity-compose:1.9.0")
+    implementation ("androidx.compose.material:material-icons-extended")
+
 
     // REMOVED: Gemini API SDK - implementation("com.google.generativeai:generativeai:0.7.0")
 
