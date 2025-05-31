@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import java.util.*
-// Import for Speech Recognition
 import android.speech.RecognizerIntent
 
 class ReminderActivity : ComponentActivity() {

@@ -32,7 +32,7 @@ android {
         buildConfigField("String", "GEOAPIFY_API_KEY", "\"${localProperties.getProperty("geoapifyApiKey", "6acbf75b57b74b749fd87b61351b7c77")}\"")
 
         // Expose GROQ_API_KEY from local.properties to BuildConfig
-        // This replaces the GEMINI_API_KEY. Ensure 'groqApiKey' is in your local.properties.
+        //
         buildConfigField("String", "GROQ_API_KEY", "\"${localProperties.getProperty("groqApiKey")}\"")
     }
 
@@ -128,6 +128,13 @@ dependencies {
     implementation("com.google.accompanist:accompanist-pager:0.34.0")
     implementation("com.google.accompanist:accompanist-pager-indicators:0.34.0")
     implementation("com.google.accompanist:accompanist-navigation-material:0.34.0")
+
+
+
+    implementation ("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation ("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation ("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // --- Core AndroidX and Compose dependencies ---
     implementation(libs.androidx.core.ktx)

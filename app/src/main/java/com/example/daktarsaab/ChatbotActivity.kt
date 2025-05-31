@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.lazy.rememberLazyListState // Added for auto-scroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -140,6 +141,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService) {
     var inputText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var showAnimations by remember { mutableStateOf(false) } // State to trigger entry animations
+    val listState = rememberLazyListState() // Added for auto-scroll
 
     // Lottie animation for the fixed top section
     val doctorBotComposition by rememberLottieComposition(LottieCompositionSpec.Asset("doctorbot.json"))
@@ -155,6 +157,13 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService) {
             // Initialize chat with system prompt and assistant's greeting
             messages.add(GroqMessage(role = "system", content = systemPrompt))
             messages.add(GroqMessage(role = "assistant", content = "Hello! I'm MedGuide, your AI medical assistant. How can I help you today?"))
+        }
+    }
+
+    // Auto-scroll to the newest message when messages list changes
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(0) // Animate scroll to the top (newest message due to reverseLayout)
         }
     }
 
@@ -263,7 +272,8 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService) {
                     .weight(1f) // This makes it take all available vertical space
                     .padding(horizontal = 8.dp),
                 reverseLayout = true, // New messages appear at the bottom
-                verticalArrangement = Arrangement.Bottom // Keeps content aligned to the bottom
+                verticalArrangement = Arrangement.Bottom, // Keeps content aligned to the bottom
+                state = listState // Added for auto-scroll
             ) {
                 // Filter out the system message from display
                 items(messages.reversed().filter { it.role != "system" }) { message ->
@@ -333,7 +343,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService) {
 
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
-                                    val apiKey = BuildConfig.GROQ_API_KEY
+                                    val apiKey = "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" // Replaced BuildConfig.GROQ_API_KEY
                                     // Use current list including system prompt for API call
                                     val currentMessagesForApi = messages.toList()
                                     val request = GroqChatCompletionRequest(
@@ -469,3 +479,4 @@ fun ChatPreview() {
         })
     }
 }
+
