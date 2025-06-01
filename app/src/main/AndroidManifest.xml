@@ -47,6 +47,17 @@
         tools:replace="android:allowBackup"
         tools:targetApi="31">
         <activity
+            android:name=".SymptomAnalayzes"
+            android:exported="true"
+            android:label="@string/title_activity_symptom_analayzes"
+            android:theme="@style/Theme.DaktarSaab">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".SymptomActivity"
             android:exported="true"
             android:label="@string/title_activity_symptom"
@@ -110,6 +121,11 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".SymptomActivity2"
+            android:exported="true">
         </activity>
         <activity
             android:name=".DashboardActivity"
