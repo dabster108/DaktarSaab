@@ -25,6 +25,9 @@ class ReminderBroadcastReceiver : BroadcastReceiver() {
         val reminderText = intent.getStringExtra(EXTRA_REMINDER_TEXT) ?: "Reminder"
         val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: System.currentTimeMillis().toString()
 
+        // Debug: Show a Toast to confirm broadcast is received
+        android.widget.Toast.makeText(context, "Reminder Triggered: $reminderText", android.widget.Toast.LENGTH_LONG).show()
+        println("ReminderBroadcastReceiver: onReceive called for: $reminderText")
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
