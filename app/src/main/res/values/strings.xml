@@ -13,4 +13,5 @@
     <string name="title_activity_emergency_call">EmergencyCallActivity</string>
     <string name="title_activity_symptom">SymptomActivity</string>
     <string name="title_activity_symptom_analayzes">SymptomAnalayzes</string>
+    <string name="title_activity_xray_analysis">XrayAnalysisActivity</string>
 </resources>
