@@ -204,11 +204,26 @@ fun ServiceGrid() {
 
 @Composable
 fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
+    val context = LocalContext.current // Get context for starting activities
     Card(
         shape = RoundedCornerShape(16.dp), // Rounded corners for the card
         modifier = modifier
             .height(160.dp) // Fixed height for the card
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .clickable { // Make the card clickable
+                when (title) {
+                    "X-ray Scan" -> {
+                        context.startActivity(Intent(context, XrayAnalysisActivity::class.java))
+                    }
+                    "Symptom Analyzer" -> {
+                        context.startActivity(Intent(context, SymptomAnalayzes::class.java))
+                    }
+                    "Maps" -> {
+                        context.startActivity(Intent(context, MapsActivity::class.java))
+                    }
+                    // Add other cases for navigation if needed
+                }
+            },
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // Card shadow
     ) {
         Column(
@@ -385,3 +400,4 @@ fun RecentHistory() {
         }
     }
 }
+
