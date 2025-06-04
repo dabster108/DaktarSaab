@@ -1,10 +1,9 @@
-import java.util.Properties
+import java.util.Properties // Keep this import as requested
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    // Removed Firebase Google Services plugin: id("com.google.gms.google-services") version "4.4.1" apply false
 }
 
 // Read local.properties to get the API key
@@ -17,22 +16,21 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "com.example.daktarsaab"
-    compileSdk = 35 // Already set to 35, which is good for notifications
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.daktarsaab"
         minSdk = 27
-        targetSdk = 35 // Already set to 35, which is good for notifications
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Expose GEOAPIFY_API_KEY from local.properties to BuildConfig (kept as requested)
+        // Expose GEOAPIFY_API_KEY from local.properties to BuildConfig
         buildConfigField("String", "GEOAPIFY_API_KEY", "\"${localProperties.getProperty("geoapifyApiKey", "6acbf75b57b74b749fd87b61351b7c77")}\"")
 
         // Expose GROQ_API_KEY from local.properties to BuildConfig
-        //
         buildConfigField("String", "GROQ_API_KEY", "\"${localProperties.getProperty("groqApiKey")}\"")
     }
 
@@ -54,63 +52,66 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true // Enable BuildConfig generation
+        buildConfig = true
     }
 
     packaging {
         resources {
-            // Exclude problematic files for ORMLite
-            excludes += "com/j256/ormlite/core/README.txt"
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // Removed redundant ORMLite exclusion if not specifically needed for packaging
+            // excludes += "com/j256/ormlite/core/README.txt"
         }
     }
 }
 
 // Exclude ORMLite core if it's causing conflicts or is not directly used
+// Keep this only if you specifically know ORMLite is causing issues and you're not using it.
+// If you are using ORMLite, this line should be removed, and the correct ORMLite dependencies added.
 configurations.all {
     exclude(group = "com.j256.ormlite", module = "ormlite-core")
 }
 
 dependencies {
     // --- Core Compose Dependencies (Managed by BOM for consistency) ---
+    // Using 2024.05.00 as it's the latest stable at the time of writing (assuming June 2025 context implies recent versions)
     implementation(platform("androidx.compose:compose-bom:2024.05.00"))
 
-    // Compose UI and Material3 modules
+    // Compose UI and Material3 modules (using BOM versions)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.animation:animation") // For animations like animateContentSize
+    implementation("androidx.compose.animation:animation")
 
-    // --- Other AndroidX Dependencies ---
+    // Extended Material Icons (for VolumeUp, Mic, Stop icons)
+    implementation("androidx.compose.material:material-icons-extended")
+
+    // Activity Compose (for ComponentActivity and rememberLauncherForActivityResult)
     implementation("androidx.activity:activity-compose:1.9.0")
-    implementation ("androidx.compose.material:material-icons-extended")
 
-
-    // REMOVED: Gemini API SDK - implementation("com.google.generativeai:generativeai:0.7.0")
-
-    // ViewModel for Compose
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    // Lifecycle runtime ktx for viewModelScope
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    // ViewModel for Compose and Lifecycle runtime ktx
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0") // Updated to 2.8.0
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0") // Updated to 2.8.0
 
     // --- Networking Libraries for Groq API ---
-    // Added Retrofit and GSON for making HTTP requests to Groq API
+    // Retrofit for making HTTP requests
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0") // For JSON parsing
+    // GSON Converter for JSON parsing with Retrofit
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    // OkHttp (dependency for Retrofit and direct usage if any, ensuring single version)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // OkHttp Logging Interceptor for seeing network requests in Logcat
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")// For logging network requests in Logcat
 
-    // Removed Firebase Dependencies for Persistence
-    // implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
-    // implementation("com.google.firebase:firebase-firestore-ktx")
-    // implementation("com.google.firebase:firebase-auth-ktx")
 
-    // --- Third-Party Libraries (OSMDroid and Location kept as requested) ---
-    // OSMDroid for maps
+    // --- Third-Party Libraries ---
+    // OSMDroid for maps (latest stable)
     implementation("org.osmdroid:osmdroid-android:6.1.18")
+    implementation("org.osmdroid:osmdroid-mapsforge:6.1.18") // Specific module
+    implementation("org.osmdroid:osmdroid-geopackage:6.1.18") // Specific module
 
-    // Google Play Services for location (kept as requested)
+    // Google Play Services for location
     implementation("com.google.android.gms:play-services-location:21.2.0")
 
     // Accompanist permissions
@@ -123,46 +124,26 @@ dependencies {
     // Paging for lists
     implementation("androidx.paging:paging-compose:3.3.0")
 
-    // Accompanist libraries
+    // Accompanist libraries (ensure consistent version)
     implementation("com.google.accompanist:accompanist-navigation-animation:0.34.0")
     implementation("com.google.accompanist:accompanist-pager:0.34.0")
     implementation("com.google.accompanist:accompanist-pager-indicators:0.34.0")
     implementation("com.google.accompanist:accompanist-navigation-material:0.34.0")
 
-
-
-    implementation ("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation ("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation ("com.squareup.okhttp3:logging-interceptor:4.12.0")
-
-    // --- Core AndroidX and Compose dependencies ---
+    // --- Core AndroidX and Compose dependencies (using libs aliases if defined) ---
+    // Assuming libs.androidx.core.ktx points to androidx.core:core-ktx
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
+    // Removed redundant lifecycle.runtime.ktx here as it's already defined with 2.8.0
+    // Removed redundant activity.compose here as it's already defined with 1.9.0
+    // Removed redundant ui, ui.graphics, ui.tooling.preview, material3 as they are managed by compose-bom above
+    // If you prefer to use aliases for these, ensure they point to the BOM-managed versions or remove the explicit BOM line.
 
     // --- Testing dependencies ---
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(platform(libs.androidx.compose.bom)) // Ensures testing modules use same Compose versions
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-
-    // --- Specific OSMDroid modules (kept as requested) ---
-    implementation("org.osmdroid:osmdroid-mapsforge:6.1.18")
-    implementation("org.osmdroid:osmdroid-geopackage:6.1.18")
-
-    implementation("androidx.activity:activity-compose:1.8.0")
-    implementation("androidx.compose.material3:material3:1.2.0")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.5.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
-    implementation("com.squareup.okhttp3:okhttp:4.10.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-
 }
