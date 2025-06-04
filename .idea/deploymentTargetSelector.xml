@@ -13,6 +13,7 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
+<<<<<<< HEAD
       <SelectionState runConfigName="LoginActivity">
         <option name="selectionMode" value="DROPDOWN" />
         <DropdownSelection timestamp="2025-06-04T14:16:26.854647Z">
@@ -24,18 +25,23 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
+=======
+>>>>>>> 98936c6ed75b0db1698df970229d9db7161889b1
       <SelectionState runConfigName="DashboardActivity">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
       <SelectionState runConfigName="DashboardActivity (1)">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
+<<<<<<< HEAD
       <SelectionState runConfigName="MapsActivity">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
       <SelectionState runConfigName="SymptomAnalayzes">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
+=======
+>>>>>>> 98936c6ed75b0db1698df970229d9db7161889b1
     </selectionStates>
   </component>
 </project>
