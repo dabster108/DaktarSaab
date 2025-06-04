@@ -552,7 +552,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                     if (lat != null && lon != null) {
                         Marker(mapViewRef).apply {
                             position = GeoPoint(lat, lon)
-                            title = name
+                            title = name // Ensure the name is displayed as the title
                             snippet = feature.properties.address_line1 ?: feature.properties.formatted ?: "No address available"
                             icon = when (selectedCategory) {
                                 "Hospitals" -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_compass)?.apply {
@@ -1053,6 +1053,7 @@ private fun CategoryButton(
             contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
         )
     ) {
+        Text(text = category) // Added Text element here
     }
 }
 
