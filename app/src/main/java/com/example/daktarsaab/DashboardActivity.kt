@@ -402,8 +402,6 @@ fun RecentHistory() {
     }
 }
 
-<<<<<<< HEAD
-=======
 
 @Preview(showBackground = true)
 @Composable
@@ -412,4 +410,4 @@ fun preDash(){
         DashboardScreen() // Display the main dashboard UI
     }
 }
->>>>>>> 98936c6ed75b0db1698df970229d9db7161889b1
+
