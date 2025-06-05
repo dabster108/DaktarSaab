@@ -12,17 +12,29 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -64,7 +76,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -200,7 +214,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
     val messages = remember { mutableStateListOf<GroqMessage>() }
     var inputText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    var showAnimations by remember { mutableStateOf(false) }
+    var showInitialWelcome by remember { mutableStateOf(true) } // Control welcome animation state
     val listState = rememberLazyListState()
     var isSpeaking by remember { mutableStateOf(false) } // State for TTS speaking status
 
@@ -210,6 +224,72 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
         iterations = LottieConstants.IterateForever
     )
 
+    // Animation states for shrinking welcome section
+    val targetScale = if (showInitialWelcome) 1f else 0.3f
+    val targetOffsetXDp = if (showInitialWelcome) 0.dp else (-100).dp // Adjust these values
+    val targetOffsetYDp = if (showInitialWelcome) 0.dp else (-50).dp // based on your desired final position
+
+    val scale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow), label = "welcomeScale"
+    )
+    val offsetX by animateFloatAsState(
+        targetValue = with(LocalDensity.current) { targetOffsetXDp.toPx() },
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow), label = "welcomeOffsetX"
+    )
+    val offsetY by animateFloatAsState(
+        targetValue = with(LocalDensity.current) { targetOffsetYDp.toPx() },
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow), label = "welcomeOffsetY"
+    )
+
+
+    // Function to send a message (either typed or spoken)
+    val sendMessage: (String) -> Unit = { messageContent ->
+        if (messageContent.isNotBlank() && !isLoading) {
+            val userMessage = GroqMessage(role = "user", content = messageContent.trim())
+            messages.add(userMessage)
+            inputText = "" // Clear input text only if it was used for sending
+            isLoading = true
+
+            // Trigger welcome animation to shrink on first message
+            if (showInitialWelcome) {
+                showInitialWelcome = false
+            }
+
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val apiKey = "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"
+                    // Use current list including system prompt for API call
+                    val currentMessagesForApi = messages.toList()
+                    val request = GroqChatCompletionRequest(
+                        model = "llama3-8b-8192",
+                        messages = currentMessagesForApi
+                    )
+
+                    val response = groqApiService.getChatCompletion(
+                        "Bearer $apiKey",
+                        request
+                    )
+
+                    if (response.isSuccessful) {
+                        val assistantMessage = response.body()?.choices?.firstOrNull()?.message
+                        assistantMessage?.let {
+                            // Add assistant's response, stripping common markdown for cleaner display
+                            messages.add(it.copy(content = it.content.replace(Regex("[*_`~]"), "")))
+                        }
+                    } else {
+                        messages.add(GroqMessage(role = "assistant", content = "Sorry, I couldn't process your request. Please try again. Error: ${response.code()}"))
+                    }
+                } catch (e: Exception) {
+                    messages.add(GroqMessage(role = "assistant", content = "An error occurred: ${e.localizedMessage}"))
+                } finally {
+                    isLoading = false
+                }
+            }
+        }
+    }
+
+
     // Speech-to-Text Launcher
     val speechRecognizerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -218,14 +298,14 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
             val spokenText: ArrayList<String>? =
                 result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             spokenText?.let {
-                inputText = it[0] // Set the first recognized text to the input field
+                // Directly send the spoken text as a user message
+                sendMessage(it[0])
             }
         }
     }
 
-    // Trigger animations and initial messages
+    // Trigger initial messages
     LaunchedEffect(Unit) {
-        showAnimations = true
         if (messages.isEmpty()) {
             messages.add(GroqMessage(role = "system", content = systemPrompt))
             messages.add(GroqMessage(role = "assistant", content = "Hello! I'm MedGuide, your AI medical assistant. How can I help you today?"))
@@ -247,10 +327,11 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
         })
     }
 
-    // Auto-scroll to the newest message
+    // Auto-scroll to the newest message (at the bottom)
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(0)
+            // Scroll to the last item when new messages are added
+            listState.animateScrollToItem(messages.size - 1)
         }
     }
 
@@ -258,6 +339,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
         messages.clear()
         messages.add(GroqMessage(role = "system", content = systemPrompt))
         messages.add(GroqMessage(role = "assistant", content = "Hello! I'm MedGuide, your AI medical assistant. How can I help you today?"))
+        showInitialWelcome = true // Reset welcome animation state
     }
 
     // Function to start Text-to-Speech
@@ -279,49 +361,73 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
         topBar = {
             TopAppBar(
                 title = {
-                    AnimatedVisibility(
-                        visible = showAnimations,
-                        enter = slideInHorizontally(animationSpec = tween(durationMillis = 500)) { initialOffset -> initialOffset }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Using painterResource for baseline_arrow_left_24
-                            val ArrowBack = painterResource(R.drawable.baseline_arrow_left_24)
-                            Icon(
-                                painter = ArrowBack,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
+                        // Using painterResource for baseline_arrow_left_24
+                        val ArrowBack = painterResource(R.drawable.baseline_arrow_left_24)
+                        Icon(
+                            painter = ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
 
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Profile",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                            CircleShape
-                                        )
-                                        .padding(6.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Dikshanta",
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = Color.Black
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
+                        // This is the part that will shrink and move
+                        Crossfade(targetState = showInitialWelcome, animationSpec = tween(500), label = "welcomeHeaderCrossfade") { initial ->
+                            if (initial) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Profile",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                                CircleShape
+                                            )
+                                            .padding(6.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Dikshanta",
+                                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                        color = Color.Black
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                }
+                            } else {
+                                // Once hidden, you might want a smaller icon or just a title here
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f),
+                                    horizontalArrangement = Arrangement.Start
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Profile",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .size(24.dp) // Smaller size
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                            .padding(4.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "MedGuide", // Changed to MedGuide when shrunk
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color.Black
+                                    )
+                                }
                             }
                         }
                     }
@@ -332,180 +438,179 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            AnimatedVisibility(
-                visible = showAnimations,
-                enter = slideInVertically(animationSpec = tween(durationMillis = 500, delayMillis = 200)) { fullHeight -> -fullHeight }
+        Box(modifier = modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
             ) {
-                Column(
+                // Initial Welcome Section (conditionally animated)
+                AnimatedVisibility(
+                    visible = showInitialWelcome,
+                    enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+                    exit = fadeOut(animationSpec = tween(durationMillis = 300)) +
+                            shrinkVertically(animationSpec = tween(durationMillis = 300, delayMillis = 100), shrinkTowards = Alignment.Top)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp)
+                            .scale(scale)
+                            .offset(x = with(LocalDensity.current) { offsetX.toDp() }, y = with(LocalDensity.current) { offsetY.toDp() }),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        LottieAnimation(
+                            composition = doctorBotComposition,
+                            progress = { doctorBotProgress },
+                            modifier = Modifier.size(if (showInitialWelcome) 200.dp else 50.dp) // Shrink Lottie
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Welcome to DaktarSaab Medical Chatbot",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Placeholder for the chat when the welcome shrinks
+                if (!showInitialWelcome) {
+                    Spacer(modifier = Modifier.height(56.dp)) // Adjust based on how much space the shrunk element takes
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp),
+                    // Removed reverseLayout = true
+                    verticalArrangement = Arrangement.Top, // Messages stack from top
+                    state = listState
+                ) {
+                    items(messages.filter { it.role != "system" }) { message -> // Display messages in their original order
+                        MessageBubble(message = message, onSpeakClick = { content ->
+                            speakText(content)
+                        }, onStopClick = {
+                            stopSpeaking()
+                        }, isSpeaking = isSpeaking) // Pass isSpeaking state
+                    }
+                }
+
+                if (isLoading) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .padding(horizontal = 8.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        label = { Text("Ask me anything") },
+                        placeholder = { Text("Type your question...") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Microphone button for Speech-to-Text
+                    IconButton(
+                        onClick = {
+                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now...")
+                            }
+                            speechRecognizerLauncher.launch(intent)
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.tertiaryContainer),
+                        enabled = !isLoading
+                    ) {
+                        Icon(
+                            Icons.Default.Mic,
+                            contentDescription = "Speak",
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    IconButton(
+                        onClick = { clearCurrentChat() },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.secondaryContainer),
+                        enabled = !isLoading
+                    ) {
+                        Icon(
+                            Icons.Default.Clear,
+                            contentDescription = "Clear Chat",
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Send button
+                    IconButton(
+                        onClick = {
+                            sendMessage(inputText) // Use the new sendMessage function
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        enabled = inputText.isNotBlank() && !isLoading // Only enable if there's typed text
+                    ) {
+                        Icon(
+                            Icons.Default.Send,
+                            contentDescription = "Send",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+            }
+
+            // Small header for the shrunk welcome (aligned to top-left)
+            // This is a simplified version and needs careful positioning
+            // to match the exact targetOffset of the animation.
+            if (!showInitialWelcome) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopStart) // Align to top-start
+                        .padding(start = 16.dp, top = paddingValues.calculateTopPadding() + 16.dp) // Adjust padding as needed
+                        .scale(0.8f) // Slightly smaller than the main shrunk element
+                        .offset(x = (-30).dp, y = (-20).dp), // Fine-tune offset to fit beside the top app bar
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     LottieAnimation(
                         composition = doctorBotComposition,
                         progress = { doctorBotProgress },
-                        modifier = Modifier.size(200.dp)
+                        modifier = Modifier.size(40.dp) // Very small Lottie
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Welcome to DaktarSaab Medical Chatbot",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 8.dp),
-                reverseLayout = true,
-                verticalArrangement = Arrangement.Bottom,
-                state = listState
-            ) {
-                items(messages.reversed().filter { it.role != "system" }) { message ->
-                    MessageBubble(message = message, onSpeakClick = { content ->
-                        speakText(content)
-                    }, onStopClick = {
-                        stopSpeaking()
-                    }, isSpeaking = isSpeaking) // Pass isSpeaking state
-                }
-            }
-
-            if (isLoading) {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .padding(horizontal = 8.dp),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                    label = { Text("Ask me anything") },
-                    placeholder = { Text("Type your question...") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = TextFieldDefaults.outlinedTextFieldColors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                    )
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Microphone button for Speech-to-Text
-                IconButton(
-                    onClick = {
-                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now...")
-                        }
-                        speechRecognizerLauncher.launch(intent)
-                    },
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.tertiaryContainer),
-                    enabled = !isLoading
-                ) {
-                    Icon(
-                        Icons.Default.Mic,
-                        contentDescription = "Speak",
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-
-                IconButton(
-                    onClick = { clearCurrentChat() },
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
-                    enabled = !isLoading
-                ) {
-                    Icon(
-                        Icons.Default.Clear,
-                        contentDescription = "Clear Chat",
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Send button
-                IconButton(
-                    onClick = {
-                        if (inputText.isNotBlank() && !isLoading) {
-                            val userMessage = GroqMessage(role = "user", content = inputText.trim())
-                            messages.add(userMessage)
-                            inputText = ""
-                            isLoading = true
-
-                            coroutineScope.launch(Dispatchers.IO) {
-                                try {
-                                    val apiKey = "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"
-                                    // Use current list including system prompt for API call
-                                    val currentMessagesForApi = messages.toList()
-                                    val request = GroqChatCompletionRequest(
-                                        model = "llama3-8b-8192",
-                                        messages = currentMessagesForApi
-                                    )
-
-                                    val response = groqApiService.getChatCompletion(
-                                        "Bearer $apiKey",
-                                        request
-                                    )
-
-                                    if (response.isSuccessful) {
-                                        val assistantMessage = response.body()?.choices?.firstOrNull()?.message
-                                        assistantMessage?.let {
-                                            // Add assistant's response, stripping common markdown for cleaner display
-                                            messages.add(it.copy(content = it.content.replace(Regex("[*_`~]"), "")))
-                                            // Automatically speak the assistant's response
-                                            speakText(it.content.replace(Regex("[*_`~]"), ""))
-                                        }
-                                    } else {
-                                        messages.add(GroqMessage(role = "assistant", content = "Sorry, I couldn't process your request. Please try again. Error: ${response.code()}"))
-                                    }
-                                } catch (e: Exception) {
-                                    messages.add(GroqMessage(role = "assistant", content = "An error occurred: ${e.localizedMessage}"))
-                                } finally {
-                                    isLoading = false
-                                }
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    enabled = !isLoading
-                ) {
-                    Icon(
-                        Icons.Default.Send,
-                        contentDescription = "Send",
-                        tint = MaterialTheme.colorScheme.onPrimary
+                        text = "MedGuide",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color.Black
                     )
                 }
             }
@@ -652,4 +757,3 @@ fun ChatPreview() {
             })
     }
 }
-
