@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.airbnb.lottie.compose.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -166,8 +167,8 @@ fun XrayAnalysisScreen() {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .wrapContentHeight() // Adjust height to content
-                                .heightIn(min = 200.dp, max = 400.dp), // Set a min and max height
+                                .wrapContentHeight()
+                                .heightIn(min = 200.dp, max = 400.dp),
                             shape = RoundedCornerShape(16.dp),
                             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                         ) {
@@ -217,13 +218,6 @@ fun XrayAnalysisScreen() {
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "Upload a clear X-Ray image to get an AI-powered preliminary analysis. This tool can help identify potential findings, but remember, it's not a substitute for professional medical advice.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                        textAlign = TextAlign.Center
-                                    )
                                 }
                             }
                         }
@@ -237,7 +231,7 @@ fun XrayAnalysisScreen() {
                             if (bitmap != null) {
                                 isLoading = true
                                 errorMessage = null
-                                resultText = "" // Clear previous results
+                                resultText = ""
                                 scope.launch {
                                     try {
                                         resultText = analyzeImageWithGemini(context, imageUri!!)
@@ -303,7 +297,7 @@ fun XrayAnalysisScreen() {
                         }
                     }
 
-                    // Loading, Error, or Results display (in-place)
+                    // Loading, Error, or Results display
                     when {
                         isLoading -> {
                             XrayLoadingAnimation()
@@ -337,7 +331,7 @@ fun XrayAnalysisScreen() {
                             }
                         }
                         resultText.isNotEmpty() -> {
-                            XrayResultDisplay(resultText) // Display results directly here
+                            XrayResultDisplay(resultText)
                         }
                     }
                 }
@@ -358,7 +352,7 @@ fun XrayAnalysisScreen() {
                     verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.LocalHospital, // Using a medical-themed icon
+                        imageVector = Icons.Default.LocalHospital,
                         contentDescription = "DaktarSaab Logo",
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier
@@ -380,13 +374,6 @@ fun XrayAnalysisScreen() {
                         color = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.alpha(alpha.value)
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Best of the Best with AI",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
-                        modifier = Modifier.alpha(alpha.value)
-                    )
                 }
             }
         }
@@ -395,49 +382,36 @@ fun XrayAnalysisScreen() {
 
 @Composable
 fun XrayLoadingAnimation() {
+    // Lottie animation composition
+    val composition by rememberLottieComposition(
+        spec = LottieCompositionSpec.Asset("xrayanimate.json")
+    )
+
+    // Progress for the animation (looping forever)
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever,
+        speed = 1.0f,
+        restartOnPlay = true
+    )
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Pulsating animation
-        val infiniteTransition = rememberInfiniteTransition(label = "loading")
-        val scale by infiniteTransition.animateFloat(
-            initialValue = 0.8f,
-            targetValue = 1.2f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1000, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "scale"
-        )
-
-        val rotation by infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(3000, easing = LinearEasing)
-            ),
-            label = "rotation"
-        )
-
-        Box(
+        // Lottie animation
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
             modifier = Modifier
-                .size(100.dp)
-                .scale(scale)
-                .rotate(rotation),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = "Analyzing",
-                modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
+                .size(250.dp)
+                .padding(8.dp),
+            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+        )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Text(
             text = "Analyzing X-Ray Image",
@@ -446,25 +420,28 @@ fun XrayLoadingAnimation() {
             color = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "This may take a minute or two...",
+            text = "Processing your X-ray with advanced AI analysis...",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         LinearProgressIndicator(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)
-                .clip(RoundedCornerShape(4.dp))
+                .clip(RoundedCornerShape(4.dp)),
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }
 
+// Rest of the code remains the same (XrayResultDisplay, DiagnosisSection, parseResultText, analyzeImageWithGemini, etc.)
 @Composable
 fun XrayResultDisplay(resultText: String) {
     Card(
@@ -800,4 +777,3 @@ suspend fun analyzeImageWithGemini(context: android.content.Context, uri: Uri): 
         throw Exception("Failed to analyze image: ${e.message}")
     }
 }
-
