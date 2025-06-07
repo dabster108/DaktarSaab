@@ -61,6 +61,9 @@ class DashboardActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPagerApi::class)
 @Composable
 fun DashboardScreen() {
+    // State for theme
+    var isDarkTheme by remember { mutableStateOf(false) }
+
     // State variables to control the animated visibility of UI elements
     var showServiceGrid by remember { mutableStateOf(false) }
     var showMedicalArticles by remember { mutableStateOf(false) }
@@ -79,93 +82,107 @@ fun DashboardScreen() {
         showRecentHistory = true
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Dashboard") }, // Title of the Top AppBar
-                actions = {
-                    // Profile icon in the top app bar
-                    Image(
-                        painter = painterResource(id = R.drawable.baseline_person_24), // Replace with your profile icon
-                        contentDescription = "Profile",
-                        modifier = Modifier
-                            .padding(end = 16.dp)
-                            .size(36.dp)
-                            .clip(CircleShape) // Clip to a circle shape
-                    )
-                }
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding) // Apply padding from Scaffold
-                .padding(16.dp) // Additional padding for content
-                .fillMaxSize(), // Fill the available size
-            verticalArrangement = Arrangement.spacedBy(20.dp) // Spacing between vertical elements
-        ) {
-            // Animated visibility for Service Grid
-            AnimatedVisibility(
-                visible = showServiceGrid,
-                enter = slideInVertically(
-                    initialOffsetY = { -it / 2 }, // Slide in from top
-                    animationSpec = tween(durationMillis = 500)
-                ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
-            ) {
-                ServiceGrid() // Composable for service cards
-            }
-
-            // Animated visibility for Medical Articles
-            AnimatedVisibility(
-                visible = showMedicalArticles,
-                enter = slideInHorizontally(
-                    initialOffsetX = { -it }, // Slide in from left
-                    animationSpec = tween(durationMillis = 500)
-                ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
-            ) {
-                // List of medical articles to display
-                val articles = remember {
-                    listOf(
-                        MedicalArticle(
-                            title = "Medical Articles",
-                            subtitle = "Updated research & trends",
-                            link = "https://www.healthhub.com",
-                            iconResId = R.drawable.baseline_article_24
-                        ),
-                        MedicalArticle(
-                            title = "Mental Wellness",
-                            subtitle = "Tips for a healthy mind",
-                            link = "https://www.mindcare.org",
-                            iconResId = R.drawable.baseline_self_improvement_24
-                        ),
-                        MedicalArticle(
-                            title = "Nutrition Guides",
-                            subtitle = "Eat well, live long",
-                            link = "https://www.facebook.com", // Example link
-                            iconResId = R.drawable.baseline_fastfood_24
+    DaktarSaabTheme(darkTheme = isDarkTheme) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Dashboard") }, // Title of the Top AppBar
+                    actions = {
+                        // Theme Toggle Button
+                        IconButton(onClick = { isDarkTheme = !isDarkTheme }) {
+                            Icon(
+                                painter = painterResource(
+                                    id = if (isDarkTheme)
+                                        R.drawable.baseline_light_mode_24
+                                    else
+                                        R.drawable.baseline_dark_mode_24
+                                ),
+                                contentDescription = if (isDarkTheme) "Switch to Light Mode" else "Switch to Dark Mode"
+                            )
+                        }
+                        // Profile icon in the top app bar
+                        Image(
+                            painter = painterResource(id = R.drawable.baseline_person_24), // Replace with your profile icon
+                            contentDescription = "Profile",
+                            modifier = Modifier
+                                .padding(end = 16.dp)
+                                .size(36.dp)
+                                .clip(CircleShape) // Clip to a circle shape
                         )
-                    )
+                    }
+                )
+            }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .padding(innerPadding) // Apply padding from Scaffold
+                    .padding(16.dp) // Additional padding for content
+                    .fillMaxSize(), // Fill the available size
+                verticalArrangement = Arrangement.spacedBy(20.dp) // Spacing between vertical elements
+            ) {
+                // Animated visibility for Service Grid
+                AnimatedVisibility(
+                    visible = showServiceGrid,
+                    enter = slideInVertically(
+                        initialOffsetY = { -it / 2 }, // Slide in from top
+                        animationSpec = tween(durationMillis = 500)
+                    ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
+                ) {
+                    ServiceGrid() // Composable for service cards
                 }
-                MedicalArticlesCard(articles = articles) // Composable for medical articles carousel
-            }
 
-            // Animated visibility for "Recent History" label
-            AnimatedVisibility(
-                visible = showRecentHistoryLabel,
-                enter = fadeIn(animationSpec = tween(durationMillis = 300)) // Simply fade in
-            ) {
-                Text("Recent History", style = MaterialTheme.typography.titleMedium)
-            }
+                // Animated visibility for Medical Articles
+                AnimatedVisibility(
+                    visible = showMedicalArticles,
+                    enter = slideInHorizontally(
+                        initialOffsetX = { -it }, // Slide in from left
+                        animationSpec = tween(durationMillis = 500)
+                    ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
+                ) {
+                    // List of medical articles to display
+                    val articles = remember {
+                        listOf(
+                            MedicalArticle(
+                                title = "Medical Articles",
+                                subtitle = "Updated research & trends",
+                                link = "https://www.healthhub.com",
+                                iconResId = R.drawable.baseline_article_24
+                            ),
+                            MedicalArticle(
+                                title = "Mental Wellness",
+                                subtitle = "Tips for a healthy mind",
+                                link = "https://www.mindcare.org",
+                                iconResId = R.drawable.baseline_self_improvement_24
+                            ),
+                            MedicalArticle(
+                                title = "Nutrition Guides",
+                                subtitle = "Eat well, live long",
+                                link = "https://www.facebook.com", // Example link
+                                iconResId = R.drawable.baseline_fastfood_24
+                            )
+                        )
+                    }
+                    MedicalArticlesCard(articles = articles) // Composable for medical articles carousel
+                }
 
-            // Animated visibility for Recent History content
-            AnimatedVisibility(
-                visible = showRecentHistory,
-                enter = slideInVertically(
-                    initialOffsetY = { it }, // Slide in from bottom
-                    animationSpec = tween(durationMillis = 500)
-                ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
-            ) {
-                RecentHistory() // Composable for recent history list
+                // Animated visibility for "Recent History" label
+                AnimatedVisibility(
+                    visible = showRecentHistoryLabel,
+                    enter = fadeIn(animationSpec = tween(durationMillis = 300)) // Simply fade in
+                ) {
+                    Text("Recent History", style = MaterialTheme.typography.titleMedium)
+                }
+
+                // Animated visibility for Recent History content
+                AnimatedVisibility(
+                    visible = showRecentHistory,
+                    enter = slideInVertically(
+                        initialOffsetY = { it }, // Slide in from bottom
+                        animationSpec = tween(durationMillis = 500)
+                    ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
+                ) {
+                    RecentHistory() // Composable for recent history list
+                }
             }
         }
     }
@@ -400,4 +417,3 @@ fun RecentHistory() {
         }
     }
 }
-
