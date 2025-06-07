@@ -83,6 +83,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
+    implementation("com.google.android.material:material:1.11.0") // Added explicit Material Design dependency
 
     // Extended Material Icons (for VolumeUp, Mic, Stop icons)
     implementation("androidx.compose.material:material-icons-extended")

@@ -1,0 +1,14 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_toggle_dark_mode"
+        android:title="Toggle Dark Mode"
+        android:icon="@drawable/baseline_dark_mode_24"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_profile"
+        android:title="Profile"
+        android:icon="@drawable/baseline_person_outline_24"
+        app:showAsAction="ifRoom" />
+</menu>
+

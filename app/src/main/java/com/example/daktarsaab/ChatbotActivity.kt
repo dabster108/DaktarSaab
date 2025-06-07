@@ -21,11 +21,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,7 +47,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VolumeUp // For baseline_speaker_phone_24
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,24 +62,28 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
@@ -99,7 +100,6 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.Header
 import retrofit2.http.POST
-import java.util.HashMap
 import java.util.Locale
 
 // --- Data Classes ---
@@ -173,7 +173,7 @@ class ChatbotActivity : ComponentActivity() {
         // Initialize TextToSpeech
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                val result = textToSpeech.setLanguage(Locale.US) // Set your desired language
+                val result = textToSpeech.setLanguage(Locale.US)
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     println("TTS: Language not supported or missing data")
                 } else {
@@ -202,11 +202,67 @@ class ChatbotActivity : ComponentActivity() {
     }
 }
 
+// --- Theme Definition ---
+private val LightColorScheme = lightColorScheme(
+    primary = Color(0xFF006A60),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFF73F8E5),
+    onPrimaryContainer = Color(0xFF00201C),
+    secondary = Color(0xFF4A635F),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFCCE8E2),
+    onSecondaryContainer = Color(0xFF06201C),
+    tertiary = Color(0xFF456179),
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFCCE5FF),
+    onTertiaryContainer = Color(0xFF001E31),
+    error = Color(0xFFBA1A1A),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    background = Color(0xFFFAFDFA),
+    onBackground = Color(0xFF191C1B),
+    surface = Color(0xFFFAFDFA),
+    onSurface = Color(0xFF191C1B),
+    surfaceVariant = Color(0xFFDBE5E2),
+    onSurfaceVariant = Color(0xFF3F4947),
+    outline = Color(0xFF6F7977),
+    surfaceTint = Color(0xFF006A60),
+)
+
+private val DarkColorScheme = darkColorScheme(
+    primary = Color(0xFF52DBCA),
+    onPrimary = Color(0xFF003731),
+    primaryContainer = Color(0xFF005048),
+    onPrimaryContainer = Color(0xFF73F8E5),
+    secondary = Color(0xFFB0CCC6),
+    onSecondary = Color(0xFF1C3531),
+    secondaryContainer = Color(0xFF334B47),
+    onSecondaryContainer = Color(0xFFCCE8E2),
+    tertiary = Color(0xFFAEC9E5),
+    onTertiary = Color(0xFF143349),
+    tertiaryContainer = Color(0xFF2C4A61),
+    onTertiaryContainer = Color(0xFFCCE5FF),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    background = Color(0xFF191C1B),
+    onBackground = Color(0xFFE0E3E1),
+    surface = Color(0xFF191C1B),
+    onSurface = Color(0xFFE0E3E1),
+    surfaceVariant = Color(0xFF3F4947),
+    onSurfaceVariant = Color(0xFFBEC9C6),
+    outline = Color(0xFF899390),
+    surfaceTint = Color(0xFF52DBCA),
+)
+
 // --- Composable Components ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, textToSpeech: TextToSpeech) {
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
     val systemPrompt = """
         You are MedGuide, an AI-powered medical assistant. You can answer health-related questions, provide general medical advice, and help users understand symptoms. Always remind users that your advice does not replace a real doctor's consultation. Be empathetic, concise, and clear. If a question is outside your scope, suggest seeing a healthcare professional.
     """.trimIndent()
@@ -214,9 +270,9 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
     val messages = remember { mutableStateListOf<GroqMessage>() }
     var inputText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    var showInitialWelcome by remember { mutableStateOf(true) } // Control welcome animation state
+    var showInitialWelcome by remember { mutableStateOf(true) }
     val listState = rememberLazyListState()
-    var isSpeaking by remember { mutableStateOf(false) } // State for TTS speaking status
+    var isSpeaking by remember { mutableStateOf(false) }
 
     val doctorBotComposition by rememberLottieComposition(LottieCompositionSpec.Asset("doctorbot.json"))
     val doctorBotProgress by animateLottieCompositionAsState(
@@ -224,10 +280,10 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
         iterations = LottieConstants.IterateForever
     )
 
-    // Animation states for shrinking welcome section
+    // Animation states
     val targetScale = if (showInitialWelcome) 1f else 0.3f
-    val targetOffsetXDp = if (showInitialWelcome) 0.dp else (-100).dp // Adjust these values
-    val targetOffsetYDp = if (showInitialWelcome) 0.dp else (-50).dp // based on your desired final position
+    val targetOffsetXDp = if (showInitialWelcome) 0.dp else (-100).dp
+    val targetOffsetYDp = if (showInitialWelcome) 0.dp else (-50).dp
 
     val scale by animateFloatAsState(
         targetValue = targetScale,
@@ -242,25 +298,25 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow), label = "welcomeOffsetY"
     )
 
-
-    // Function to send a message (either typed or spoken)
+    // Function to send a message
     val sendMessage: (String) -> Unit = { messageContent ->
         if (messageContent.isNotBlank() && !isLoading) {
             val userMessage = GroqMessage(role = "user", content = messageContent.trim())
             messages.add(userMessage)
-            inputText = "" // Clear input text only if it was used for sending
+            inputText = ""
             isLoading = true
 
-            // Trigger welcome animation to shrink on first message
             if (showInitialWelcome) {
                 showInitialWelcome = false
             }
 
             coroutineScope.launch(Dispatchers.IO) {
                 try {
-                    val apiKey = "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"
-                    // Use current list including system prompt for API call
-                    val currentMessagesForApi = messages.toList()
+                    val apiKey = "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"
+                    val currentMessagesForApi = mutableListOf<GroqMessage>()
+                    currentMessagesForApi.add(GroqMessage(role = "system", content = systemPrompt))
+                    currentMessagesForApi.addAll(messages.filter { it.role == "user" || it.role == "assistant" })
+
                     val request = GroqChatCompletionRequest(
                         model = "llama3-8b-8192",
                         messages = currentMessagesForApi
@@ -274,21 +330,21 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                     if (response.isSuccessful) {
                         val assistantMessage = response.body()?.choices?.firstOrNull()?.message
                         assistantMessage?.let {
-                            // Add assistant's response, stripping common markdown for cleaner display
                             messages.add(it.copy(content = it.content.replace(Regex("[*_`~]"), "")))
                         }
                     } else {
+                        val errorBody = response.errorBody()?.string() ?: "Unknown error"
+                        println("API Error: ${response.code()}, $errorBody")
                         messages.add(GroqMessage(role = "assistant", content = "Sorry, I couldn't process your request. Please try again. Error: ${response.code()}"))
                     }
                 } catch (e: Exception) {
-                    messages.add(GroqMessage(role = "assistant", content = "An error occurred: ${e.localizedMessage}"))
+                    messages.add(GroqMessage(role = "assistant", content = "An error occurred. Please try again. ${e.localizedMessage}"))
                 } finally {
                     isLoading = false
                 }
             }
         }
     }
-
 
     // Speech-to-Text Launcher
     val speechRecognizerLauncher = rememberLauncherForActivityResult(
@@ -298,20 +354,18 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
             val spokenText: ArrayList<String>? =
                 result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             spokenText?.let {
-                // Directly send the spoken text as a user message
                 sendMessage(it[0])
             }
         }
     }
 
-    // Trigger initial messages
+    // Initial setup
     LaunchedEffect(Unit) {
         if (messages.isEmpty()) {
             messages.add(GroqMessage(role = "system", content = systemPrompt))
             messages.add(GroqMessage(role = "assistant", content = "Hello! I'm MedGuide, your AI medical assistant. How can I help you today?"))
         }
 
-        // Set up UtteranceProgressListener for TTS
         textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
                 isSpeaking = true
@@ -327,10 +381,9 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
         })
     }
 
-    // Auto-scroll to the newest message (at the bottom)
+    // Auto-scroll to newest message
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            // Scroll to the last item when new messages are added
             listState.animateScrollToItem(messages.size - 1)
         }
     }
@@ -339,21 +392,20 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
         messages.clear()
         messages.add(GroqMessage(role = "system", content = systemPrompt))
         messages.add(GroqMessage(role = "assistant", content = "Hello! I'm MedGuide, your AI medical assistant. How can I help you today?"))
-        showInitialWelcome = true // Reset welcome animation state
+        showInitialWelcome = true
     }
 
-    // Function to start Text-to-Speech
+    // TTS functions
     val speakText: (String) -> Unit = { text ->
         if (!textToSpeech.isSpeaking) {
             textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "message_utterance")
         }
     }
 
-    // Function to stop Text-to-Speech
     val stopSpeaking: () -> Unit = {
         if (textToSpeech.isSpeaking) {
             textToSpeech.stop()
-            isSpeaking = false // Manually set to false if stopping
+            isSpeaking = false
         }
     }
 
@@ -366,17 +418,21 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Using painterResource for baseline_arrow_left_24
-                        val ArrowBack = painterResource(R.drawable.baseline_arrow_left_24)
+                        // Theme-aware back icon
+                        val backIcon = if (isSystemInDarkTheme()) {
+                            painterResource(R.drawable.baseline_dark_mode_24)
+                        } else {
+                            painterResource(R.drawable.baseline_arrow_left_24)
+                        }
+
                         Icon(
-                            painter = ArrowBack,
+                            painter = backIcon,
                             contentDescription = "Back",
                             tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(16.dp))
 
-                        // This is the part that will shrink and move
                         Crossfade(targetState = showInitialWelcome, animationSpec = tween(500), label = "welcomeHeaderCrossfade") { initial ->
                             if (initial) {
                                 Row(
@@ -391,7 +447,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                                         modifier = Modifier
                                             .size(36.dp)
                                             .background(
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
                                                 CircleShape
                                             )
                                             .padding(6.dp)
@@ -400,12 +456,11 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                                     Text(
                                         text = "Dikshanta",
                                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                        color = Color.Black
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Spacer(modifier = Modifier.width(16.dp))
                                 }
                             } else {
-                                // Once hidden, you might want a smaller icon or just a title here
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.weight(1f),
@@ -416,16 +471,16 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                                         contentDescription = "Profile",
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier
-                                            .size(24.dp) // Smaller size
+                                            .size(24.dp)
                                             .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f))
                                             .padding(4.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "MedGuide", // Changed to MedGuide when shrunk
+                                        text = "MedGuide",
                                         style = MaterialTheme.typography.titleMedium,
-                                        color = Color.Black
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }
@@ -444,7 +499,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                // Initial Welcome Section (conditionally animated)
+                // Initial Welcome Section
                 AnimatedVisibility(
                     visible = showInitialWelcome,
                     enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
@@ -463,7 +518,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                         LottieAnimation(
                             composition = doctorBotComposition,
                             progress = { doctorBotProgress },
-                            modifier = Modifier.size(if (showInitialWelcome) 200.dp else 50.dp) // Shrink Lottie
+                            modifier = Modifier.size(if (showInitialWelcome) 200.dp else 50.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
@@ -475,25 +530,23 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                     }
                 }
 
-                // Placeholder for the chat when the welcome shrinks
                 if (!showInitialWelcome) {
-                    Spacer(modifier = Modifier.height(56.dp)) // Adjust based on how much space the shrunk element takes
+                    Spacer(modifier = Modifier.height(56.dp))
                 }
 
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 8.dp),
-                    // Removed reverseLayout = true
-                    verticalArrangement = Arrangement.Top, // Messages stack from top
+                    verticalArrangement = Arrangement.Top,
                     state = listState
                 ) {
-                    items(messages.filter { it.role != "system" }) { message -> // Display messages in their original order
+                    items(messages.filter { it.role != "system" }) { message ->
                         MessageBubble(message = message, onSpeakClick = { content ->
                             speakText(content)
                         }, onStopClick = {
                             stopSpeaking()
-                        }, isSpeaking = isSpeaking) // Pass isSpeaking state
+                        }, isSpeaking = isSpeaking)
                     }
                 }
 
@@ -523,13 +576,20 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                         shape = RoundedCornerShape(24.dp),
                         colors = TextFieldDefaults.outlinedTextFieldColors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                            cursorColor = MaterialTheme.colorScheme.primary,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // Microphone button for Speech-to-Text
+                    // Microphone button
                     IconButton(
                         onClick = {
                             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -553,6 +613,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                     }
                     Spacer(modifier = Modifier.width(8.dp))
 
+                    // Clear button
                     IconButton(
                         onClick = { clearCurrentChat() },
                         modifier = Modifier
@@ -572,13 +633,13 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                     // Send button
                     IconButton(
                         onClick = {
-                            sendMessage(inputText) // Use the new sendMessage function
+                            sendMessage(inputText)
                         },
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primary),
-                        enabled = inputText.isNotBlank() && !isLoading // Only enable if there's typed text
+                        enabled = inputText.isNotBlank() && !isLoading
                     ) {
                         Icon(
                             Icons.Default.Send,
@@ -589,28 +650,26 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                 }
             }
 
-            // Small header for the shrunk welcome (aligned to top-left)
-            // This is a simplified version and needs careful positioning
-            // to match the exact targetOffset of the animation.
+            // Small header for shrunk welcome
             if (!showInitialWelcome) {
                 Row(
                     modifier = Modifier
-                        .align(Alignment.TopStart) // Align to top-start
-                        .padding(start = 16.dp, top = paddingValues.calculateTopPadding() + 16.dp) // Adjust padding as needed
-                        .scale(0.8f) // Slightly smaller than the main shrunk element
-                        .offset(x = (-30).dp, y = (-20).dp), // Fine-tune offset to fit beside the top app bar
+                        .align(Alignment.TopStart)
+                        .padding(start = 16.dp, top = paddingValues.calculateTopPadding() + 16.dp)
+                        .scale(0.8f)
+                        .offset(x = (-30).dp, y = (-20).dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     LottieAnimation(
                         composition = doctorBotComposition,
                         progress = { doctorBotProgress },
-                        modifier = Modifier.size(40.dp) // Very small Lottie
+                        modifier = Modifier.size(40.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "MedGuide",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -624,7 +683,7 @@ fun MessageBubble(message: GroqMessage, onSpeakClick: (String) -> Unit, onStopCl
     val bubbleColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
     val textColor = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 
-    // Lottie Animation for AI (robot.json)
+    // Lottie Animation for AI
     val robotComposition by rememberLottieComposition(LottieCompositionSpec.Asset("robot.json"))
     val robotProgress by animateLottieCompositionAsState(
         composition = robotComposition,
@@ -638,7 +697,6 @@ fun MessageBubble(message: GroqMessage, onSpeakClick: (String) -> Unit, onStopCl
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Show robot Lottie for assistant messages
         if (!isUser) {
             LottieAnimation(
                 composition = robotComposition,
@@ -666,16 +724,15 @@ fun MessageBubble(message: GroqMessage, onSpeakClick: (String) -> Unit, onStopCl
                     modifier = Modifier.padding(16.dp)
                 )
             }
-            // Add speaker icon for assistant messages
+
             if (!isUser) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.End, // Align to end of bubble
+                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Play/Stop button based on speaking state
                     IconButton(onClick = {
                         if (isSpeaking) {
                             onStopClick()
@@ -693,7 +750,6 @@ fun MessageBubble(message: GroqMessage, onSpeakClick: (String) -> Unit, onStopCl
             }
         }
 
-        // Show person icon for user messages
         if (isUser) {
             Spacer(modifier = Modifier.width(8.dp))
             Icon(
@@ -702,7 +758,7 @@ fun MessageBubble(message: GroqMessage, onSpeakClick: (String) -> Unit, onStopCl
                 modifier = Modifier
                     .size(48.dp)
                     .background(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
                         CircleShape
                     )
                     .padding(6.dp),
@@ -710,6 +766,25 @@ fun MessageBubble(message: GroqMessage, onSpeakClick: (String) -> Unit, onStopCl
             )
         }
     }
+}
+
+// Theme Definition
+@Composable
+fun DaktarSaabTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+    val colorScheme = if (darkTheme) {
+        DarkColorScheme
+    } else {
+        LightColorScheme
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = MaterialTheme.typography,
+        content = content
+    )
 }
 
 @Preview(showBackground = true)
