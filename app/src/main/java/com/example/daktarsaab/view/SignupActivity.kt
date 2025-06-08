@@ -1,8 +1,9 @@
-package com.example.daktarsaab
+package com.example.daktarsaab.view
 
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Patterns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -18,7 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +39,7 @@ import coil.request.ImageRequest
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import kotlinx.coroutines.delay
 import com.airbnb.lottie.compose.*
+import com.example.daktarsaab.R
 
 class SignupActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,7 +78,7 @@ fun SignupScreen(
     var isCheckingEmail by remember { mutableStateOf(false) }
 
     val isEmailValid = remember(email) {
-        android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+        Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }

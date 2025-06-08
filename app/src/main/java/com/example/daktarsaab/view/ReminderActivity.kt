@@ -1,4 +1,4 @@
-package com.example.daktarsaab
+package com.example.daktarsaab.view
 
 import android.Manifest
 import android.app.Activity // Required for ActivityResultLauncher
@@ -41,6 +41,8 @@ import androidx.core.content.ContextCompat
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import java.util.*
 import android.speech.RecognizerIntent
+import com.example.daktarsaab.R
+import com.example.daktarsaab.ReminderBroadcastReceiver
 
 class ReminderActivity : ComponentActivity() {
     private val requestNotificationPermissionLauncher = registerForActivityResult(
@@ -369,8 +371,8 @@ fun ReminderScreen() {
 private fun scheduleReminder(context: Context, reminder: Reminder) {
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     val intent = Intent(context, ReminderBroadcastReceiver::class.java).apply {
-        putExtra(ReminderBroadcastReceiver.EXTRA_REMINDER_TEXT, reminder.text)
-        putExtra(ReminderBroadcastReceiver.EXTRA_REMINDER_ID, reminder.id)
+        putExtra(ReminderBroadcastReceiver.Companion.EXTRA_REMINDER_TEXT, reminder.text)
+        putExtra(ReminderBroadcastReceiver.Companion.EXTRA_REMINDER_ID, reminder.id)
     }
     val pendingIntent = PendingIntent.getBroadcast(
         context,

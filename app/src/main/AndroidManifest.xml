@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest package="com.example.daktarsaab"
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.CALL_PHONE" />
@@ -20,6 +21,7 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <queries>
         <intent>
@@ -46,7 +48,7 @@
         tools:targetApi="31">
 
         <activity
-            android:name=".DashboardActivity"
+            android:name=".view.DashboardActivity"
             android:exported="true"
             android:label="@string/title_activity_dashboard"
             android:theme="@style/Theme.DaktarSaab">
@@ -57,7 +59,7 @@
         </activity>
 
         <activity
-            android:name=".XrayAnalysisActivity"
+            android:name=".view.XrayAnalysisActivity"
             android:exported="true"
             android:label="@string/title_activity_xray_analysis"
             android:theme="@style/Theme.DaktarSaab">
@@ -68,7 +70,7 @@
         </activity>
 
         <activity
-            android:name=".SymptomAnalayzes"
+            android:name=".view.SymptomAnalayzes"
             android:exported="true"
             android:label="@string/title_activity_symptom_analayzes"
             android:theme="@style/Theme.DaktarSaab">
@@ -79,18 +81,7 @@
         </activity>
 
         <activity
-            android:name=".SymptomActivity"
-            android:exported="true"
-            android:label="@string/title_activity_symptom"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name=".EmergencyCallActivity"
+            android:name=".view.EmergencyCallActivity"
             android:exported="true"
             android:label="@string/title_activity_emergency_call"
             android:theme="@style/Theme.DaktarSaab">
@@ -100,10 +91,13 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".ReminderBroadcastReceiver"
+            android:exported="false" />
         <activity
-            android:name=".MainActivity2"
+            android:name=".view.ReminderActivity"
             android:exported="true"
-            android:label="@string/title_activity_main2"
+            android:label="@string/title_activity_reminder"
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -111,21 +105,8 @@
             </intent-filter>
         </activity>
 
-        <receiver
-            android:name=".ReminderBroadcastReceiver"
-            android:exported="false" /> <activity
-        android:name=".ReminderActivity"
-        android:exported="true"
-        android:label="@string/title_activity_reminder"
-        android:theme="@style/Theme.DaktarSaab">
-        <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
-    </activity>
-
         <activity
-            android:name=".ChatbotActivity"
+            android:name=".view.ChatbotActivity"
             android:exported="true"
             android:label="@string/title_activity_chatbot"
             android:theme="@style/Theme.DaktarSaab">
@@ -136,7 +117,7 @@
         </activity>
 
         <activity
-            android:name=".MapsActivity"
+            android:name=".view.MapsActivity"
             android:exported="true"
             android:label="@string/title_activity_maps"
             android:theme="@style/Theme.DaktarSaab">
@@ -147,16 +128,7 @@
         </activity>
 
         <activity
-            android:name=".SymptomActivity2"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name=".ForgotPasswordActivity"
+            android:name=".view.ForgotPasswordActivity"
             android:exported="true"
             android:label="@string/title_activity_forgot_password"
             android:theme="@style/Theme.DaktarSaab">
@@ -167,7 +139,7 @@
         </activity>
 
         <activity
-            android:name=".SignupActivity"
+            android:name=".view.SignupActivity"
             android:exported="true"
             android:label="@string/title_activity_signup"
             android:theme="@style/Theme.DaktarSaab">
@@ -178,7 +150,7 @@
         </activity>
 
         <activity
-            android:name=".LoginActivity"
+            android:name=".view.LoginActivity"
             android:exported="true"
             android:label="@string/title_activity_login"
             android:theme="@style/Theme.DaktarSaab">
@@ -189,7 +161,7 @@
         </activity>
 
         <activity
-            android:name=".MainActivity"
+            android:name=".view.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.DaktarSaab">

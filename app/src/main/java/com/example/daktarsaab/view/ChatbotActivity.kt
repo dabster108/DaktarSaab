@@ -1,4 +1,4 @@
-package com.example.daktarsaab
+package com.example.daktarsaab.view
 
 import android.app.Activity
 import android.content.Intent
@@ -83,12 +83,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
+import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -813,7 +813,7 @@ fun ChatPreview() {
             ) {
                 override fun shutdown() {}
                 override fun stop(): Int {
-                    return TextToSpeech.SUCCESS
+                    return SUCCESS
                 }
                 override fun speak(
                     text: CharSequence?,
@@ -821,13 +821,13 @@ fun ChatPreview() {
                     params: Bundle?,
                     utteranceId: String?
                 ): Int {
-                    return TextToSpeech.SUCCESS
+                    return SUCCESS
                 }
                 override fun setLanguage(locale: Locale?): Int {
-                    return TextToSpeech.LANG_AVAILABLE
+                    return LANG_AVAILABLE
                 }
                 override fun setOnUtteranceProgressListener(listener: UtteranceProgressListener?): Int {
-                    return TextToSpeech.SUCCESS
+                    return SUCCESS
                 }
             })
     }

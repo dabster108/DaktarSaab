@@ -1,6 +1,7 @@
-package com.example.daktarsaab
+package com.example.daktarsaab.view
 
 import android.Manifest
+import android.R
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
@@ -13,18 +14,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
@@ -51,6 +46,7 @@ import org.osmdroid.util.BoundingBox
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import com.example.daktarsaab.BuildConfig
 
 // --- Geoapify Data Classes (Autocomplete) ---
 data class GeoapifyAutocompleteResponse(val features: List<GeoapifyFeature>)
@@ -427,14 +423,14 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                 val startMarker = Marker(mapViewRef).apply {
                     position = startPoint
                     title = "Start: $startAddress"
-                    icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)
+                    icon = ContextCompat.getDrawable(context, R.drawable.ic_menu_mylocation)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
 
                 val endMarker = Marker(mapViewRef).apply {
                     position = endPoint
                     title = "Destination: $endAddress"
-                    icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_directions)
+                    icon = ContextCompat.getDrawable(context, R.drawable.ic_menu_directions)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
 
@@ -555,20 +551,20 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                             title = name // Ensure the name is displayed as the title
                             snippet = feature.properties.address_line1 ?: feature.properties.formatted ?: "No address available"
                             icon = when (selectedCategory) {
-                                "Hospitals" -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_compass)?.apply {
-                                    setTint(ContextCompat.getColor(context, R.color.hospital_color))
+                                "Hospitals" -> ContextCompat.getDrawable(context, R.drawable.ic_menu_compass)?.apply {
+                                    setTint(ContextCompat.getColor(context, com.example.daktarsaab.R.color.hospital_color))
                                 }
-                                "Pharmacies" -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_add)?.apply {
-                                    setTint(ContextCompat.getColor(context, R.color.pharmacy_color))
+                                "Pharmacies" -> ContextCompat.getDrawable(context, R.drawable.ic_menu_add)?.apply {
+                                    setTint(ContextCompat.getColor(context, com.example.daktarsaab.R.color.pharmacy_color))
                                 }
-                                "Clinics" -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_myplaces)?.apply {
-                                    setTint(ContextCompat.getColor(context, R.color.clinic_color))
+                                "Clinics" -> ContextCompat.getDrawable(context, R.drawable.ic_menu_myplaces)?.apply {
+                                    setTint(ContextCompat.getColor(context, com.example.daktarsaab.R.color.clinic_color))
                                 }
-                                "Gas Stations" -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_directions)?.apply {
-                                    setTint(ContextCompat.getColor(context, R.color.gas_station_color))
+                                "Gas Stations" -> ContextCompat.getDrawable(context, R.drawable.ic_menu_directions)?.apply {
+                                    setTint(ContextCompat.getColor(context, com.example.daktarsaab.R.color.gas_station_color))
                                 }
-                                else -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_search)
-                            } ?: ContextCompat.getDrawable(context, android.R.drawable.ic_menu_info_details) // Fallback icon
+                                else -> ContextCompat.getDrawable(context, R.drawable.ic_menu_search)
+                            } ?: ContextCompat.getDrawable(context, R.drawable.ic_menu_info_details) // Fallback icon
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                             id = feature.properties.place_id // For place details lookup
                             setOnMarkerClickListener { marker, _ ->
@@ -634,7 +630,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                         ) {
                             // Back Arrow Icon
                             Icon(
-                                painter = painterResource(id = R.drawable.baseline_arrow_left_24),
+                                painter = painterResource(id = com.example.daktarsaab.R.drawable.baseline_arrow_left_24),
                                 contentDescription = "Back",
                                 tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(24.dp)
@@ -648,7 +644,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                                 horizontalArrangement = Arrangement.End
                             ) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.baseline_person_24),
+                                    painter = painterResource(id = com.example.daktarsaab.R.drawable.baseline_person_24),
                                     contentDescription = "Profile",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier
@@ -884,7 +880,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                             val currentLocationMarker = Marker(mapView).apply {
                                 position = it
                                 title = "Current Location"
-                                icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)
+                                icon = ContextCompat.getDrawable(context, R.drawable.ic_menu_mylocation)
                                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                             }
                             mapView.overlays.add(currentLocationMarker)
@@ -910,11 +906,11 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                         .padding(16.dp)
                 ) {
                     Icon(
-                        painter = androidx.compose.ui.res.painterResource(
+                        painter = painterResource(
                             id = if (isFullscreen)
-                                R.drawable.baseline_close_fullscreen_24
+                                com.example.daktarsaab.R.drawable.baseline_close_fullscreen_24
                             else
-                                R.drawable.baseline_open_in_full_24
+                                com.example.daktarsaab.R.drawable.baseline_open_in_full_24
                         ),
                         contentDescription = if (isFullscreen) "Exit Fullscreen" else "Enter Fullscreen" // Added content description
                     )

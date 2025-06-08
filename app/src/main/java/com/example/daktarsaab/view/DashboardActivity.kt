@@ -1,4 +1,5 @@
-package com.example.daktarsaab
+package com.example.daktarsaab.view
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -8,12 +9,16 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -24,16 +29,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
+import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import com.google.accompanist.pager.*
 import kotlinx.coroutines.delay
+
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 
 // Data class for Medical Articles
@@ -68,6 +75,10 @@ fun DashboardScreen() {
     var showMedicalArticles by remember { mutableStateOf(false) }
     var showRecentHistoryLabel by remember { mutableStateOf(false) }
     var showRecentHistory by remember { mutableStateOf(false) }
+    var showNavBar by remember { mutableStateOf(false) } // State for Navbar visibility
+
+    // State for selected navigation item
+    var selectedNavItem by remember { mutableStateOf(0) }
 
     // LaunchedEffect to trigger animations sequentially after a delay
     LaunchedEffect(true) {
@@ -79,6 +90,8 @@ fun DashboardScreen() {
         showRecentHistoryLabel = true
         delay(200) // Delay before showing recent history content
         showRecentHistory = true
+        delay(400) // Delay before showing navbar
+        showNavBar = true
     }
 
     DaktarSaabTheme(darkTheme = isDarkTheme) {
@@ -110,13 +123,108 @@ fun DashboardScreen() {
                         )
                     }
                 )
+            },
+            bottomBar = {
+                // Animated visibility for the NavigationBar
+                AnimatedVisibility(
+                    visible = showNavBar,
+                    enter = slideInVertically(
+                        initialOffsetY = { it }, // Slide in from bottom
+                        animationSpec = tween(durationMillis = 500)
+                    ) + fadeIn(animationSpec = tween(durationMillis = 500)),
+                    exit = slideOutVertically(
+                        targetOffsetY = { it }, // Slide out to bottom
+                        animationSpec = tween(durationMillis = 500)
+                    ) + fadeOut(animationSpec = tween(durationMillis = 500))
+                ) {
+                    // Customizing Navbar colors and properties
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer, // Use primaryContainer for a distinct look
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tonalElevation = 8.dp, // Add some elevation
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp) // Add horizontal and vertical padding
+                            .clip(RoundedCornerShape(16.dp)) // Apply rounded corners to all four sides
+                    ) {
+                        // Home
+                        NavigationBarItem(
+                            selected = selectedNavItem == 0,
+                            onClick = { selectedNavItem = 0 },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_home_24),
+                                    contentDescription = "Home"
+                                )
+                            },
+                            label = { Text("Home") },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) // Subtle indicator
+                            )
+                        )
+                        // Align Vertical Bottom (e.g., for Appointments/History)
+                        NavigationBarItem(
+                            selected = selectedNavItem == 1,
+                            onClick = { selectedNavItem = 1 },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_align_vertical_bottom_24),
+                                    contentDescription = "Appointments"
+                                )
+                            },
+                            label = { Text("Appointments") },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            )
+                        )
+                        // Person Pin (e.g., for Profile/Settings)
+                        NavigationBarItem(
+                            selected = selectedNavItem == 2,
+                            onClick = { selectedNavItem = 2 },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_person_pin_24),
+                                    contentDescription = "Profile"
+                                )
+                            },
+                            label = { Text("Profile") },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            )
+                        )
+                        // Person Search (e.g., for Find Doctor)
+                        NavigationBarItem(
+                            selected = selectedNavItem == 3,
+                            onClick = { selectedNavItem = 3 },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_person_search_24),
+                                    contentDescription = "Find Doctor"
+                                )
+                            },
+                            label = { Text("Find Doctor") },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            )
+                        )
+                    }
+                }
             }
         ) { innerPadding ->
+            // **Apply verticalScroll to the main Column**
             Column(
                 modifier = Modifier
                     .padding(innerPadding) // Apply padding from Scaffold
-                    .padding(16.dp) // Additional padding for content
-                    .fillMaxSize(), // Fill the available size
+                    .padding(horizontal = 16.dp) // Additional horizontal padding for content
+                    .fillMaxSize() // Fill the available size
+                    .verticalScroll(rememberScrollState()), // **Make the column scrollable**
                 verticalArrangement = Arrangement.spacedBy(20.dp) // Spacing between vertical elements
             ) {
                 // Animated visibility for Service Grid
@@ -182,6 +290,7 @@ fun DashboardScreen() {
                 ) {
                     RecentHistory() // Composable for recent history list
                 }
+                Spacer(modifier = Modifier.height(16.dp)) // Add some space at the bottom for the navbar
             }
         }
     }
@@ -229,13 +338,16 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
             .clickable { // Make the card clickable
                 when (title) {
                     "X-ray Scan" -> {
-                        context.startActivity(Intent(context, XrayAnalysisActivity::class.java))
+                        // context.startActivity(Intent(context, XrayAnalysisActivity::class.java)) // Uncomment and replace with actual activity
                     }
                     "Symptom Analyzer" -> {
-                        context.startActivity(Intent(context, SymptomAnalayzes::class.java))
+                        // context.startActivity(Intent(context, SymptomAnalayzes::class.java)) // Uncomment and replace with actual activity
                     }
                     "Maps" -> {
-                        context.startActivity(Intent(context, MapsActivity::class.java))
+                        // context.startActivity(Intent(context, MapsActivity::class.java)) // Uncomment and replace with actual activity
+                    }
+                    "Doctor Booking" -> {
+                        // context.startActivity(Intent(context, DoctorBookingActivity::class.java)) // Example for a new activity
                     }
                     // Add other cases for navigation if needed
                 }
@@ -274,7 +386,6 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
 @Composable
 fun MedicalArticlesCard(articles: List<MedicalArticle>) {
     val pagerState = rememberPagerState(initialPage = 0) // State for the horizontal pager
-    val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current // Get current context to launch intents
 
     // Auto-scroll the pager every 5 seconds
@@ -379,16 +490,26 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
 
 @Composable
 fun RecentHistory() {
-    // Dummy data for recent appointments
+    // Dummy data for recent appointments - now with more entries
     val appointments = listOf(
-        "Appointment 1: Kathmandu",
-        "Appointment 2: Lalitpur",
-        "Appointment 3: Bhaktapur",
-        "Appointment 4: Chitwan"
+        "Appointment 1: Kathmandu - Dr. Sharma (Cardiologist)",
+        "Appointment 2: Lalitpur - Dr. Basnet (Dermatologist)",
+        "Appointment 3: Bhaktapur - Dr. Thapa (Pediatrician)",
+        "Appointment 4: Chitwan - Dr. Koirala (Orthopedic)",
+        "Appointment 5: Pokhara - Dr. Gurung (Dentist)",
+        "Appointment 6: Biratnagar - Dr. Poudel (Neurologist)",
+        "Appointment 7: Butwal - Dr. Rai (Ophthalmologist)",
+        "Appointment 8: Dharan - Dr. Limbu (ENT Specialist)",
+        "Appointment 9: Janakpur - Dr. Yadav (General Physician)",
+        "Appointment 10: Dhangadhi - Dr. Chaudhary (Psychiatrist)"
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        appointments.forEach { appointment ->
+    // Using LazyColumn to make the list scrollable
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.heightIn(max = 400.dp) // Example: limit height to 400.dp
+    ) {
+        items(appointments) { appointment ->
             Card(
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(4.dp),
@@ -404,7 +525,8 @@ fun RecentHistory() {
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(appointment, style = MaterialTheme.typography.titleSmall)
-                        Text("Location details", style = MaterialTheme.typography.bodySmall)
+                        // You can parse the appointment string to get a more specific location if needed
+                        Text("Details available upon click", style = MaterialTheme.typography.bodySmall)
                     }
                     Button(
                         onClick = { /* TODO: Handle Report click */ } // Placeholder for report button action

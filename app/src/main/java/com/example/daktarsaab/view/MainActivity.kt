@@ -1,4 +1,4 @@
-package com.example.daktarsaab
+package com.example.daktarsaab.view
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

@@ -10,6 +10,7 @@ import android.media.RingtoneManager // Import for default notification sound
 import android.net.Uri // Import for sound URI
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.example.daktarsaab.view.ReminderActivity
 
 class ReminderBroadcastReceiver : BroadcastReceiver() {
 

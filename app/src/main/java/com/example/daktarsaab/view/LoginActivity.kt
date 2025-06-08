@@ -1,7 +1,7 @@
-package com.example.daktarsaab
-import android.content.Context
+package com.example.daktarsaab.view
 import android.content.Intent
 import android.os.Bundle
+import android.util.Patterns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
+import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import kotlinx.coroutines.delay
 
@@ -39,7 +40,7 @@ class LoginActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val sharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        val sharedPreferences = getSharedPreferences("app_prefs", MODE_PRIVATE)
         val isSplashShown = false // Ensures splash shows on every fresh activity creation
 
         setContent {
@@ -225,7 +226,7 @@ fun LoginScreen(
     )
 
     val isEmailValid = remember(email) {
-        android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+        Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }
 
     LaunchedEffect(email) {
