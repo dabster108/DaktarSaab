@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "668607961017",
+    "firebase_url": "https://daktarsaab-ad7ec-default-rtdb.firebaseio.com",
+    "project_id": "daktarsaab-ad7ec",
+    "storage_bucket": "daktarsaab-ad7ec.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:668607961017:android:e9b70762e0445417a0c868",
+        "android_client_info": {
+          "package_name": "com.example.daktarsaab"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "668607961017-ecem47t6r6o0c2inr4nimlfmrpls66cr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqXEg2Ajzy5xIwmM2NueIRLDjja2jQdp4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "668607961017-ecem47t6r6o0c2inr4nimlfmrpls66cr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

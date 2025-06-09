@@ -574,9 +574,9 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                         placeholder = { Text("Type your question...") },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(24.dp),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                        colors = TextFieldDefaults.colors(
+                            focusedIndicatorColor = MaterialTheme.colorScheme.primary, // Changed from focusedBorderColor
+                            unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), // Changed from unfocusedBorderColor
                             cursorColor = MaterialTheme.colorScheme.primary,
                             focusedTextColor = MaterialTheme.colorScheme.onSurface,
                             unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
