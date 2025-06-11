@@ -17,6 +17,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.Scaffold
@@ -52,6 +54,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,12 +92,20 @@ class EmergencyCallActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge() // Enables edge-to-edge display for a more immersive experience
         setContent {
-            DaktarSaabTheme(content = { // Applies the custom theme defined in DaktarSaabTheme
+            // Move the state and theme logic inside the Composable scope
+            val isDarkTheme = isSystemInDarkTheme()
+            var darkMode by rememberSaveable { mutableStateOf(isDarkTheme) }
+
+            DaktarSaabTheme(darkTheme = darkMode) { // Applies the custom theme defined in DaktarSaabTheme
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     // The main composable screen, passing padding from the Scaffold
-                    EmergencyCallScreen(Modifier.padding(innerPadding))
+                    EmergencyCallScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        darkMode = darkMode,
+                        onToggleDarkMode = { darkMode = !darkMode }
+                    )
                 }
-            }, colorScheme = colorScheme)
+            }
         }
     }
 }
@@ -104,10 +115,16 @@ class EmergencyCallActivity : ComponentActivity() {
  * It displays emergency numbers, hospital contacts, and a horizontal content pager.
  *
  * @param modifier Modifier to be applied to the root Column.
+ * @param darkMode Boolean indicating if dark mode is enabled
+ * @param onToggleDarkMode Lambda to toggle dark mode state
  */
 @OptIn(ExperimentalFoundationApi::class) // Opt-in for ExperimentalFoundationApi for HorizontalPager
 @Composable
-fun EmergencyCallScreen(modifier: Modifier = Modifier) {
+fun EmergencyCallScreen(
+    modifier: Modifier = Modifier,
+    darkMode: Boolean = isSystemInDarkTheme(),
+    onToggleDarkMode: () -> Unit = {}
+) {
     // Raw data for emergency numbers and hospital departments
     val rawEmergencyData = remember {
         listOf(
@@ -203,7 +220,7 @@ fun EmergencyCallScreen(modifier: Modifier = Modifier) {
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // User profile section at the top right
+        // User profile section at the top right with dark mode toggle
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -211,7 +228,25 @@ fun EmergencyCallScreen(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Note: R.drawable.baseline_person_24 is used here, ensure it exists.
+            // Dark/Light mode toggle
+            IconButton(
+                onClick = onToggleDarkMode,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    painter = painterResource(
+                        id = if (darkMode) R.drawable.baseline_light_mode_24
+                             else R.drawable.baseline_dark_mode_24
+                    ),
+                    contentDescription = if (darkMode) "Switch to Light Mode" else "Switch to Dark Mode",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // User profile icon and name
             Icon(
                 painter = painterResource(id = R.drawable.baseline_person_24),
                 contentDescription = "User Profile",
@@ -224,6 +259,9 @@ fun EmergencyCallScreen(modifier: Modifier = Modifier) {
                 modifier = Modifier.padding(start = 8.dp)
             )
         }
+
+        // Add extra space before the emergency content
+        Spacer(modifier = Modifier.height(16.dp))
 
         // LazyColumn to scroll through all the content
         LazyColumn(
