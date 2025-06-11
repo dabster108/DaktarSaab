@@ -9,6 +9,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -17,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,7 +47,11 @@ class LoginActivity : ComponentActivity() {
         val isSplashShown = false // Ensures splash shows on every fresh activity creation
 
         setContent {
-            DaktarSaabTheme(content = {
+            // Move isSystemInDarkTheme() and theme state inside the composable scope
+            val isDarkTheme = isSystemInDarkTheme()
+            var darkMode by rememberSaveable { mutableStateOf(isDarkTheme) }
+
+            DaktarSaabTheme(darkTheme = darkMode) {
                 var showSplash by remember { mutableStateOf(!isSplashShown) }
 
                 LaunchedEffect(showSplash) {
@@ -73,11 +79,13 @@ class LoginActivity : ComponentActivity() {
                             onSignupClick = {
                                 val intent = Intent(context, SignupActivity::class.java)
                                 context.startActivity(intent)
-                            }
+                            },
+                            darkMode = darkMode,
+                            onToggleDarkMode = { darkMode = !darkMode }
                         )
                     }
                 }
-            }, colorScheme = colorScheme)
+            }
         }
     }
 }
@@ -202,7 +210,9 @@ private fun Dp.roundToPx(): Int {return this.value.toInt()}
 @Composable
 fun LoginScreen(
     onForgotPasswordClick: () -> Unit,
-    onSignupClick: () -> Unit
+    onSignupClick: () -> Unit,
+    darkMode: Boolean = isSystemInDarkTheme(),
+    onToggleDarkMode: () -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -270,247 +280,278 @@ fun LoginScreen(
         isAnimating = false
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.Center
-    ) {
-        AnimatedVisibility(
-            visible = topVisible.value,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { -200 }),
-            exit = fadeOut()
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Dark/Light mode toggle in the top right with padding
+        IconButton(
+            onClick = onToggleDarkMode,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                LottieAnimation(
-                    composition = doctorAnimation,
-                    progress = { animationProgress },
-                    modifier = Modifier
-                        .size(250.dp)
-                        .padding(bottom = 16.dp)
-                )
-
-                Text(
-                    text = "Log in ✨",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = displayedText,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
-                )
-            }
+            Icon(
+                painter = painterResource(
+                    id = if (darkMode) R.drawable.baseline_light_mode_24
+                         else R.drawable.baseline_dark_mode_24
+                ),
+                contentDescription = if (darkMode) "Switch to Light Mode" else "Switch to Dark Mode",
+                tint = Color.Unspecified,
+                modifier = Modifier.size(28.dp)
+            )
         }
 
-        AnimatedVisibility(
-            visible = bottomVisible.value,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { 200 }),
-            exit = fadeOut()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.Center
         ) {
-            Column {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    leadingIcon = {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_email_24),
-                            contentDescription = null
-                        )
-                    },
-                    trailingIcon = {
-                        if (email.isNotBlank()) {
-                            AnimatedContent(
-                                targetState = isCheckingEmail to isEmailValid,
-                                transitionSpec = {
-                                    if (targetState.first) {
-                                        fadeIn() with fadeOut()
-                                    } else {
-                                        if (targetState.second) {
-                                            scaleIn() + fadeIn() with scaleOut() + fadeOut()
-                                        } else {
+            AnimatedVisibility(
+                visible = topVisible.value,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { -200 }),
+                exit = fadeOut()
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    LottieAnimation(
+                        composition = doctorAnimation,
+                        progress = { animationProgress },
+                        modifier = Modifier
+                            .size(250.dp)
+                            .padding(bottom = 16.dp)
+                    )
+
+                    Text(
+                        text = "Log in ✨",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = displayedText,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = bottomVisible.value,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { 200 }),
+                exit = fadeOut()
+            ) {
+                Column {
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_email_24),
+                                contentDescription = null
+                            )
+                        },
+                        trailingIcon = {
+                            if (email.isNotBlank()) {
+                                AnimatedContent(
+                                    targetState = isCheckingEmail to isEmailValid,
+                                    transitionSpec = {
+                                        if (targetState.first) {
                                             fadeIn() with fadeOut()
+                                        } else {
+                                            if (targetState.second) {
+                                                scaleIn() + fadeIn() with scaleOut() + fadeOut()
+                                            } else {
+                                                fadeIn() with fadeOut()
+                                            }
                                         }
                                     }
-                                }
-                            ) { (checking, valid) ->
-                                when {
-                                    checking -> LoadingCircle()
-                                    valid -> BlueCheckmark()
-                                    else -> {}
+                                ) { (checking, valid) ->
+                                    when {
+                                        checking -> LoadingCircle()
+                                        valid -> BlueCheckmark()
+                                        else -> {}
+                                    }
                                 }
                             }
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
+                        )
                     )
-                )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        Icon(
-                            painter = painterResource(
-                                id = if (passwordVisible)
-                                    R.drawable.baseline_visibility_off_24
-                                else
-                                    R.drawable.baseline_visibility_24
-                            ),
-                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                            modifier = Modifier
-                                .clickable { passwordVisible = !passwordVisible }
-                                .padding(8.dp)
-                        )
-                    },
-                    leadingIcon = {
-                        val lockScale = animateFloatAsState(
-                            targetValue = if (isPasswordLocked && password.isNotBlank()) 1.2f else 1f,
-                            animationSpec = tween(durationMillis = 300),
-                            label = "lockScale"
-                        )
-
-                        Icon(
-                            painter = painterResource(
-                                id = if (isPasswordLocked && password.isNotBlank())
-                                    R.drawable.baseline_lock_24
-                                else
-                                    R.drawable.baseline_lock_open_24
-                            ),
-                            contentDescription = null,
-                            tint = if (isPasswordLocked && password.isNotBlank())
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.scale(lockScale.value)
-                        )
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = rememberMe,
-                            onCheckedChange = { rememberMe = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = MaterialTheme.colorScheme.primary
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        modifier = Modifier.fillMaxWidth(),
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            Icon(
+                                painter = painterResource(
+                                    id = if (passwordVisible)
+                                        R.drawable.baseline_visibility_off_24
+                                    else
+                                        R.drawable.baseline_visibility_24
+                                ),
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                modifier = Modifier
+                                    .clickable { passwordVisible = !passwordVisible }
+                                    .padding(8.dp)
                             )
+                        },
+                        leadingIcon = {
+                            val lockScale = animateFloatAsState(
+                                targetValue = if (isPasswordLocked && password.isNotBlank()) 1.2f else 1f,
+                                animationSpec = tween(durationMillis = 300),
+                                label = "lockScale"
+                            )
+
+                            Icon(
+                                painter = painterResource(
+                                    id = if (isPasswordLocked && password.isNotBlank())
+                                        R.drawable.baseline_lock_24
+                                    else
+                                        R.drawable.baseline_lock_open_24
+                                ),
+                                contentDescription = null,
+                                tint = if (isPasswordLocked && password.isNotBlank())
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.scale(lockScale.value)
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary
                         )
-                        Text("Remember me")
-                    }
-
-                    Text(
-                        text = "Forgot password?",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.clickable { onForgotPasswordClick() }
                     )
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                Button(
-                    onClick = { /* TODO: Implement login logic */ },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    enabled = email.isNotBlank() && password.isNotBlank() && !isCheckingEmail && isEmailValid,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                    )
-                ) {
-                    Text("Log In", fontSize = 16.sp)
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Divider(
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                    )
-                    Text(
-                        text = " Or log in with ",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
-                    )
-                    Divider(
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                OutlinedButton(
-                    onClick = { /* TODO: Handle Google sign-in */ },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    border = ButtonDefaults.outlinedButtonBorder,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    )
-                ) {
+                    // Updated row for "Remember me" and "Forgot password"
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.img1),
-                            contentDescription = "Google Logo",
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Sign in with Google")
-                    }
-                }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Checkbox(
+                                checked = rememberMe,
+                                onCheckedChange = { rememberMe = it },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            Text(
+                                "Remember me",
+                                fontSize = 12.sp,  // Smaller text size
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                        }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Don't have an account?")
-                    TextButton(onClick = onSignupClick) {
                         Text(
-                            text = "Sign up",
-                            fontWeight = FontWeight.Bold
+                            text = "Forgot password?",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            modifier = Modifier
+                                .clickable { onForgotPasswordClick() }
+                                .padding(8.dp)  // Add padding for better touch target
                         )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = { /* TODO: Implement login logic */ },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        enabled = email.isNotBlank() && password.isNotBlank() && !isCheckingEmail && isEmailValid,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Text("Log In", fontSize = 16.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Divider(
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                        Text(
+                            text = " Or log in with ",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
+                        )
+                        Divider(
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    OutlinedButton(
+                        onClick = { /* TODO: Handle Google sign-in */ },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        border = ButtonDefaults.outlinedButtonBorder,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.img1),
+                                contentDescription = "Google Logo",
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sign in with Google")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Don't have an account?")
+                        TextButton(onClick = onSignupClick) {
+                            Text(
+                                text = "Sign up",
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
