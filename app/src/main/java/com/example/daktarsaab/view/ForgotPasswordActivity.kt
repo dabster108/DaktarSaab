@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,14 +38,14 @@ class ForgotPasswordActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            DaktarSaabTheme {
+            DaktarSaabTheme(content = {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     ForgotPasswordScreen()
                 }
-            }
+            }, colorScheme = colorScheme)
         }
     }
 }
@@ -411,7 +412,7 @@ fun ForgotPasswordScreen() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ForgotPasswordScreenPreview() {
-    DaktarSaabTheme {
+    DaktarSaabTheme(content = {
         ForgotPasswordScreen()
-    }
+    }, colorScheme = colorScheme)
 }

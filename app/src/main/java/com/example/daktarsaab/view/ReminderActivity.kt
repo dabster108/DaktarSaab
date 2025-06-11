@@ -41,6 +41,7 @@ import androidx.core.content.ContextCompat
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import java.util.*
 import android.speech.RecognizerIntent
+import androidx.compose.material3.MaterialTheme.colorScheme
 import com.example.daktarsaab.R
 import com.example.daktarsaab.ReminderBroadcastReceiver
 
@@ -63,14 +64,14 @@ class ReminderActivity : ComponentActivity() {
             }
         }
         setContent {
-            DaktarSaabTheme {
+            DaktarSaabTheme(content = {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     ReminderScreen()
                 }
-            }
+            }, colorScheme = colorScheme)
         }
     }
 }

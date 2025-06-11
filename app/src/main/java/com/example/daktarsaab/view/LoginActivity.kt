@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,7 +45,7 @@ class LoginActivity : ComponentActivity() {
         val isSplashShown = false // Ensures splash shows on every fresh activity creation
 
         setContent {
-            DaktarSaabTheme {
+            DaktarSaabTheme(content = {
                 var showSplash by remember { mutableStateOf(!isSplashShown) }
 
                 LaunchedEffect(showSplash) {
@@ -76,7 +77,7 @@ class LoginActivity : ComponentActivity() {
                         )
                     }
                 }
-            }
+            }, colorScheme = colorScheme)
         }
     }
 }
@@ -568,18 +569,18 @@ private fun BlueCheckmark() {
 @Preview(showBackground = true, name = "Splash Screen Preview")
 @Composable
 fun SplashScreenPreview() {
-    DaktarSaabTheme {
+    DaktarSaabTheme(content = {
         SplashScreen()
-    }
+    }, colorScheme = colorScheme)
 }
 
 @Preview(showBackground = true, showSystemUi = true, name = "Login Screen Preview")
 @Composable
 fun LoginScreenPreview() {
-    DaktarSaabTheme {
+    DaktarSaabTheme(content = {
         LoginScreen(
             onForgotPasswordClick = {},
             onSignupClick = {}
         )
-    }
+    }, colorScheme = colorScheme)
 }

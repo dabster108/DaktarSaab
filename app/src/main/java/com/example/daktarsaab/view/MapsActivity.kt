@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +47,6 @@ import org.osmdroid.util.BoundingBox
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import com.example.daktarsaab.BuildConfig
 
 // --- Geoapify Data Classes (Autocomplete) ---
 data class GeoapifyAutocompleteResponse(val features: List<GeoapifyFeature>)
@@ -294,7 +294,7 @@ class MapsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Configuration.getInstance().userAgentValue = packageName
         setContent {
-            DaktarSaabTheme {
+            DaktarSaabTheme(content = {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MedicalMapScreen(
                         onLocationPermissionRequested = {
@@ -304,7 +304,7 @@ class MapsActivity : ComponentActivity() {
                         permissionSignal = permissionGrantedSignal
                     )
                 }
-            }
+            }, colorScheme = colorScheme)
         }
     }
 }

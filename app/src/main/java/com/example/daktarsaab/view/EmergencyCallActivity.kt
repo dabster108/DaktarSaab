@@ -42,6 +42,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -88,12 +89,12 @@ class EmergencyCallActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge() // Enables edge-to-edge display for a more immersive experience
         setContent {
-            DaktarSaabTheme { // Applies the custom theme defined in DaktarSaabTheme
+            DaktarSaabTheme(content = { // Applies the custom theme defined in DaktarSaabTheme
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     // The main composable screen, passing padding from the Scaffold
                     EmergencyCallScreen(Modifier.padding(innerPadding))
                 }
-            }
+            }, colorScheme = colorScheme)
         }
     }
 }
@@ -720,7 +721,7 @@ fun DotsIndicator(
 @Preview(showBackground = true)
 @Composable
 fun EmergencyPreview() {
-    DaktarSaabTheme {
+    DaktarSaabTheme(content = {
         EmergencyCallScreen()
-    }
+    }, colorScheme = colorScheme)
 }

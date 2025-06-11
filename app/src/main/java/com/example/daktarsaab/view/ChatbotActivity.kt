@@ -55,6 +55,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -185,11 +186,11 @@ class ChatbotActivity : ComponentActivity() {
         }
 
         setContent {
-            DaktarSaabTheme {
+            DaktarSaabTheme(content = {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     ChatScreen(groqApiService = groqApiService, textToSpeech = textToSpeech)
                 }
-            }
+            }, colorScheme = colorScheme)
         }
     }
 
@@ -790,7 +791,7 @@ fun DaktarSaabTheme(
 @Preview(showBackground = true)
 @Composable
 fun ChatPreview() {
-    DaktarSaabTheme {
+    DaktarSaabTheme(content = {
         ChatScreen(groqApiService = object : GroqApiService {
             override suspend fun getChatCompletion(p0: String, p1: GroqChatCompletionRequest) =
                 Response.success(GroqChatCompletionResponse(
@@ -815,6 +816,7 @@ fun ChatPreview() {
                 override fun stop(): Int {
                     return SUCCESS
                 }
+
                 override fun speak(
                     text: CharSequence?,
                     queueMode: Int,
@@ -823,12 +825,14 @@ fun ChatPreview() {
                 ): Int {
                     return SUCCESS
                 }
+
                 override fun setLanguage(locale: Locale?): Int {
                     return LANG_AVAILABLE
                 }
+
                 override fun setOnUtteranceProgressListener(listener: UtteranceProgressListener?): Int {
                     return SUCCESS
                 }
             })
-    }
+    }, colorScheme = colorScheme)
 }

@@ -41,6 +41,7 @@ import kotlinx.coroutines.delay
 
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme.colorScheme
 
 
 // Data class for Medical Articles
@@ -57,9 +58,9 @@ class DashboardActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge() // Enables edge-to-edge display for a modern look
         setContent {
-            DaktarSaabTheme { // Apply your app's theme
+            DaktarSaabTheme(content = { // Apply your app's theme
                 DashboardScreen() // Display the main dashboard UI
-            }
+            }, colorScheme = colorScheme)
         }
     }
 }
@@ -94,7 +95,7 @@ fun DashboardScreen() {
         showNavBar = true
     }
 
-    DaktarSaabTheme(darkTheme = isDarkTheme) {
+    DaktarSaabTheme(darkTheme = isDarkTheme, content = {
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -293,7 +294,7 @@ fun DashboardScreen() {
                 Spacer(modifier = Modifier.height(16.dp)) // Add some space at the bottom for the navbar
             }
         }
-    }
+    }, colorScheme = colorScheme)
 }
 
 @Composable
