@@ -73,6 +73,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -186,11 +187,20 @@ class ChatbotActivity : ComponentActivity() {
         }
 
         setContent {
-            DaktarSaabTheme(content = {
+            // Move isSystemInDarkTheme() call inside the composable function
+            val isDarkTheme = isSystemInDarkTheme()
+            var darkMode by rememberSaveable { mutableStateOf(isDarkTheme) }
+
+            DaktarSaabTheme(darkTheme = darkMode) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    ChatScreen(groqApiService = groqApiService, textToSpeech = textToSpeech)
+                    ChatScreen(
+                        groqApiService = groqApiService,
+                        textToSpeech = textToSpeech,
+                        darkMode = darkMode,
+                        onToggleDarkMode = { darkMode = !darkMode }
+                    )
                 }
-            }, colorScheme = colorScheme)
+            }
         }
     }
 
@@ -261,7 +271,7 @@ private val DarkColorScheme = darkColorScheme(
 // --- Composable Components ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, textToSpeech: TextToSpeech) {
+fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, textToSpeech: TextToSpeech, darkMode: Boolean, onToggleDarkMode: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val systemPrompt = """
@@ -313,7 +323,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
 
             coroutineScope.launch(Dispatchers.IO) {
                 try {
-                    val apiKey = "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"
+                    val apiKey = "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"
                     val currentMessagesForApi = mutableListOf<GroqMessage>()
                     currentMessagesForApi.add(GroqMessage(role = "system", content = systemPrompt))
                     currentMessagesForApi.addAll(messages.filter { it.role == "user" || it.role == "assistant" })
@@ -419,71 +429,61 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Theme-aware back icon
-                        val backIcon = if (isSystemInDarkTheme()) {
-                            painterResource(R.drawable.baseline_dark_mode_24)
-                        } else {
-                            painterResource(R.drawable.baseline_arrow_left_24)
-                        }
-
+                        // Left side with back button
                         Icon(
-                            painter = backIcon,
+                            painter = painterResource(id = R.drawable.baseline_arrow_left_24),
                             contentDescription = "Back",
                             tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(24.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
 
-                        Crossfade(targetState = showInitialWelcome, animationSpec = tween(500), label = "welcomeHeaderCrossfade") { initial ->
-                            if (initial) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Profile",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(
-                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-                                                CircleShape
-                                            )
-                                            .padding(6.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Dikshanta",
-                                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                }
-                            } else {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f),
-                                    horizontalArrangement = Arrangement.Start
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Profile",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f))
-                                            .padding(4.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "MedGuide",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        // Right side with theme toggle and profile
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            // Theme toggle button
+                            IconButton(
+                                onClick = onToggleDarkMode,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (darkMode) R.drawable.baseline_light_mode_24
+                                             else R.drawable.baseline_dark_mode_24
+                                    ),
+                                    contentDescription = if (darkMode) "Switch to Light Mode" else "Switch to Dark Mode",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            // Profile icon and name
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Profile",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                                            CircleShape
+                                        )
+                                        .padding(6.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Dikshanta",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
                         }
                     }
@@ -668,7 +668,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "MedGuide",
+                        text = "DaktarSaab Chatbot",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -788,27 +788,29 @@ fun DaktarSaabTheme(
     )
 }
 
+
 @Preview(showBackground = true)
 @Composable
 fun ChatPreview() {
-    DaktarSaabTheme(content = {
-        ChatScreen(groqApiService = object : GroqApiService {
-            override suspend fun getChatCompletion(p0: String, p1: GroqChatCompletionRequest) =
-                Response.success(GroqChatCompletionResponse(
-                    id = "test",
-                    choices = listOf(Choice(
-                        finish_reason = "stop",
-                        index = 0,
-                        message = GroqMessage("assistant", "Sample response from MedGuide! Always consult a doctor for medical advice."),
-                        logprobs = null
-                    )),
-                    created = 0,
-                    model = "test",
-                    system_fingerprint = null,
-                    `object` = "test",
-                    usage = Usage(0, 0, 0)
-                ))
-        },
+    DaktarSaabTheme {
+        ChatScreen(
+            groqApiService = object : GroqApiService {
+                override suspend fun getChatCompletion(p0: String, p1: GroqChatCompletionRequest) =
+                    Response.success(GroqChatCompletionResponse(
+                        id = "test",
+                        choices = listOf(Choice(
+                            finish_reason = "stop",
+                            index = 0,
+                            message = GroqMessage("assistant", "Sample response from MedGuide! Always consult a doctor for medical advice."),
+                            logprobs = null
+                        )),
+                        created = 0,
+                        model = "test",
+                        system_fingerprint = null,
+                        `object` = "test",
+                        usage = Usage(0, 0, 0)
+                    ))
+            },
             textToSpeech = object : TextToSpeech(
                 android.app.Application(), null
             ) {
@@ -833,6 +835,9 @@ fun ChatPreview() {
                 override fun setOnUtteranceProgressListener(listener: UtteranceProgressListener?): Int {
                     return SUCCESS
                 }
-            })
-    }, colorScheme = colorScheme)
+            },
+            darkMode = false,
+            onToggleDarkMode = {}
+        )
+    }
 }
