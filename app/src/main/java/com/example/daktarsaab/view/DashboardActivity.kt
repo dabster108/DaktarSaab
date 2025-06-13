@@ -81,7 +81,7 @@ class DashboardActivity : ComponentActivity() {
 @Composable
 fun DashboardScreen() {
     // State for theme
-    var isDarkTheme by remember { mutableStateOf(false) }
+    var isDarkTheme by rememberSaveable { mutableStateOf(false) }
 
     // States to control animated visibility for Home content
     var showServiceGrid by remember { mutableStateOf(false) }
@@ -406,15 +406,15 @@ fun UtilitiesContent(showUtilitiesContent: Boolean) {
                 title = "Reminders",
                 description = "Never miss a dose or appointment again. Your health, on schedule!",
                 iconResId = R.drawable.baseline_alarm_24,
-                targetActivity = ReminderActivity::class.java,
-                onClick = { context.startActivity(Intent(it, ReminderActivity::class.java)) }
+                //targetActivity = ReminderActivity::class.java // Uncomment and replace with your ReminderActivity
+                onClick = { /* context.startActivity(Intent(it, ReminderActivity::class.java)) */ }
             ),
             UtilityItem(
                 title = "Emergency Contact",
                 description = "Connect instantly to life-saving services and your trusted contacts.",
                 iconResId = R.drawable.baseline_local_hospital_24,
-                targetActivity = EmergencyCallActivity::class.java,
-                onClick = { context.startActivity(Intent(it, EmergencyCallActivity::class.java)) }
+                //targetActivity = EmergencyCallActivity::class.java // Uncomment and replace with your EmergencyCallActivity
+                onClick = { /* context.startActivity(Intent(it, EmergencyCallActivity::class.java)) */ }
             ),
             UtilityItem(
                 title = "Symptom Analyzer",
@@ -448,7 +448,7 @@ fun UtilitiesContent(showUtilitiesContent: Boolean) {
                     modifier = Modifier.padding(bottom = 8.dp) // Increased bottom padding
                 )
                 Text(
-                    text = "Dive into our practical tools designed to support your well-being, from timely reminders to immediate emergency support and smart symptom analysis",
+                    text = "Dive into our practical tools designed to support your well-being, from timely **reminders** to immediate **emergency support** and smart **symptom analysis**.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 24.sp,
