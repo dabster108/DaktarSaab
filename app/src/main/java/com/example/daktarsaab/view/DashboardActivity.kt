@@ -1,4 +1,5 @@
 package com.example.daktarsaab.view
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -42,11 +43,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme.colorScheme
 import kotlinx.coroutines.launch
-
-// Import for Material Icons (make sure you have `androidx.compose.material:material-icons-extended` in your build.gradle)
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChatBubble // For a filled chat bubble icon
-// import androidx.compose.material.icons.outlined.ChatBubble // If you prefer an outlined version
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.style.TextAlign
 
 
 // Data class for Medical Articles
@@ -55,6 +53,15 @@ data class MedicalArticle(
     val subtitle: String,
     val link: String,
     val iconResId: Int
+)
+
+// Data class for Utility items
+data class UtilityItem(
+    val title: String,
+    val description: String,
+    val iconResId: Int,
+    val targetActivity: Class<*>? = null, // Nullable for placeholders
+    val onClick: ((android.content.Context) -> Unit)? = null // Custom click action
 )
 
 // Main Activity for the Dashboard
@@ -76,12 +83,19 @@ fun DashboardScreen() {
     // State for theme
     var isDarkTheme by remember { mutableStateOf(false) }
 
-    // State variables to control the animated visibility of UI elements
+    // States to control animated visibility for Home content
     var showServiceGrid by remember { mutableStateOf(false) }
     var showMedicalArticles by remember { mutableStateOf(false) }
     var showRecentHistoryLabel by remember { mutableStateOf(false) }
     var showRecentHistory by remember { mutableStateOf(false) }
-    var showNavBar by remember { mutableStateOf(false) } // State for Navbar visibility
+
+    // State to control animated visibility for Utilities content
+    var showUtilitiesContent by remember { mutableStateOf(false) }
+
+    // Use rememberSaveable to persist the state across configuration changes and process death
+    var showNavBar by rememberSaveable { mutableStateOf(false) }
+    var initialLoad by rememberSaveable { mutableStateOf(true) } // To control initial animation sequence
+
 
     // State for selected navigation item
     var selectedNavItem by remember { mutableStateOf(0) }
@@ -89,24 +103,66 @@ fun DashboardScreen() {
     val context = LocalContext.current // Hoist context to composable scope
 
     // LaunchedEffect to trigger animations sequentially after a delay
-    LaunchedEffect(true) {
-        delay(300) // Delay before showing service grid
-        showServiceGrid = true
-        delay(300) // Delay before showing medical articles
-        showMedicalArticles = true
-        delay(300) // Delay before showing recent history label
-        showRecentHistoryLabel = true
-        delay(200) // Delay before showing recent history content
-        showRecentHistory = true
-        delay(400) // Delay before showing navbar
-        showNavBar = true
+    // This effect runs only once when `initialLoad` is true
+    LaunchedEffect(initialLoad, selectedNavItem) { // Add selectedNavItem as a key
+        if (initialLoad) {
+            delay(300)
+            showServiceGrid = true
+            delay(300)
+            showMedicalArticles = true
+            delay(300)
+            showRecentHistoryLabel = true
+            delay(200)
+            showRecentHistory = true
+            delay(400)
+            showNavBar = true
+            initialLoad = false // Mark initial load as complete
+        } else {
+            // If not initial load, show everything for the current tab immediately
+            showServiceGrid = (selectedNavItem == 0)
+            showMedicalArticles = (selectedNavItem == 0)
+            showRecentHistoryLabel = (selectedNavItem == 0)
+            showRecentHistory = (selectedNavItem == 0)
+            showUtilitiesContent = (selectedNavItem == 1) // Show utilities immediately if tab is selected
+            showNavBar = true // Navbar always visible after initial load
+        }
+    }
+
+    // Effect to control utilities content animation based on selected tab
+    LaunchedEffect(selectedNavItem) {
+        if (!initialLoad) { // Only animate if not initial app load
+            // Hide previous content animations when switching tabs
+            showServiceGrid = false
+            showMedicalArticles = false
+            showRecentHistoryLabel = false
+            showRecentHistory = false
+            showUtilitiesContent = false // Hide utilities first for re-animation
+
+            if (selectedNavItem == 1) { // If Utilities tab is selected
+                delay(100) // Small delay before animating in
+                showUtilitiesContent = true
+            } else if (selectedNavItem == 0) { // If Home tab is selected
+                delay(100) // Small delay before animating in
+                showServiceGrid = true
+                delay(100)
+                showMedicalArticles = true
+                delay(100)
+                showRecentHistoryLabel = true
+                delay(100)
+                showRecentHistory = true
+            }
+        }
     }
 
     DaktarSaabTheme(darkTheme = isDarkTheme, content = {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Dashboard") }, // Title of the Top AppBar
+                    title = {
+                        Text(
+                            text = if (selectedNavItem == 1) "Utilities" else "Dashboard"
+                        )
+                    },
                     actions = {
                         // Theme Toggle Button
                         IconButton(onClick = { isDarkTheme = !isDarkTheme }) {
@@ -145,22 +201,24 @@ fun DashboardScreen() {
                         animationSpec = tween(durationMillis = 500)
                     ) + fadeOut(animationSpec = tween(durationMillis = 500))
                 ) {
-                    // Customizing Navbar colors and properties
+                    // Customizing Navbar colors and properties for a modern look
                     NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer, // Use primaryContainer for a distinct look
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp), // Use surface color with elevation
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                         tonalElevation = 8.dp, // Add some elevation
                         modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 8.dp) // Add horizontal and vertical padding
-                            .clip(RoundedCornerShape(16.dp)) // Apply rounded corners to all four sides
+                            .padding(horizontal = 12.dp, vertical = 8.dp) // Adjusted padding
+                            .clip(RoundedCornerShape(24.dp)) // More rounded corners
                     ) {
                         // Home
                         NavigationBarItem(
                             selected = selectedNavItem == 0,
                             onClick = {
-                                selectedNavItem = 0
-                                // Refresh DashboardActivity if already open
-                                if (context is DashboardActivity) {
+                                if (selectedNavItem != 0) { // Only recreate if not already on Home
+                                    selectedNavItem = 0
+                                }
+                                // No recreate if it's the initial load or already on Home
+                                if (!initialLoad && context is DashboardActivity) {
                                     context.recreate()
                                 }
                             },
@@ -172,9 +230,9 @@ fun DashboardScreen() {
                             },
                             label = { Text("Home") },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                selectedIconColor = MaterialTheme.colorScheme.primary, // More vibrant primary color
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) // Lighter indicator
                             )
                         )
                         // Utilities
@@ -189,37 +247,37 @@ fun DashboardScreen() {
                             },
                             label = { Text("Utilities") },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                             )
                         )
-                        // Chatbot (using a more bot-like icon) - Moved before Profile
+                        // Chatbot
                         NavigationBarItem(
-                            selected = selectedNavItem == 2, // Changed index
+                            selected = false, // Chatbot is never "selected" in the dashboard UI
                             onClick = {
-                                selectedNavItem = 2 // Changed index
-                                // Open ChatbotActivity
+                                // Launch ChatbotActivity directly without changing selectedNavItem
+                                // This prevents the Dashboard's content from briefly switching
+                                // to a blank state before the new activity opens.
                                 context.startActivity(Intent(context, ChatbotActivity::class.java))
                             },
                             icon = {
-                                // Changed icon to a more "bot-like" icon
                                 Icon(
-                                    painter = painterResource(id = R.drawable.baseline_android_24), // Example: Android bot icon
+                                    painter = painterResource(id = R.drawable.baseline_android_24), // Android bot icon
                                     contentDescription = "Chatbot"
                                 )
                             },
                             label = { Text("Chatbot") },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                             )
                         )
                         // Profile
                         NavigationBarItem(
-                            selected = selectedNavItem == 3, // Changed index
-                            onClick = { selectedNavItem = 3 }, // Changed index
+                            selected = selectedNavItem == 3,
+                            onClick = { selectedNavItem = 3 },
                             icon = {
                                 Icon(
                                     painter = painterResource(id = R.drawable.baseline_person_pin_24),
@@ -228,9 +286,9 @@ fun DashboardScreen() {
                             },
                             label = { Text("Profile") },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                             )
                         )
                     }
@@ -254,8 +312,8 @@ fun DashboardScreen() {
                         showRecentHistoryLabel = showRecentHistoryLabel,
                         showRecentHistory = showRecentHistory
                     )
-                    1 -> UtilitiesContent() // New Utilities content
-                    2 -> ChatbotContent() // Placeholder for Chatbot content (actual activity is launched)
+                    1 -> UtilitiesContent(showUtilitiesContent = showUtilitiesContent) // Pass animation state
+                    // No content for selectedNavItem == 2 (Chatbot) as it launches a new activity
                     3 -> ProfileContent() // Placeholder for Profile content
                 }
 
@@ -338,86 +396,132 @@ fun HomeContent(
 }
 
 @Composable
-fun UtilitiesContent() {
+fun UtilitiesContent(showUtilitiesContent: Boolean) {
     val context = LocalContext.current
+
+    // List of utility items
+    val utilities = remember {
+        listOf(
+            UtilityItem(
+                title = "Reminders",
+                description = "Never miss a dose or appointment again. Your health, on schedule!",
+                iconResId = R.drawable.baseline_alarm_24,
+                //targetActivity = ReminderActivity::class.java // Uncomment and replace with your ReminderActivity
+                onClick = { /* context.startActivity(Intent(it, ReminderActivity::class.java)) */ }
+            ),
+            UtilityItem(
+                title = "Emergency Contact",
+                description = "Connect instantly to life-saving services and your trusted contacts.",
+                iconResId = R.drawable.baseline_local_hospital_24,
+                //targetActivity = EmergencyCallActivity::class.java // Uncomment and replace with your EmergencyCallActivity
+                onClick = { /* context.startActivity(Intent(it, EmergencyCallActivity::class.java)) */ }
+            ),
+            UtilityItem(
+                title = "Symptom Analyzer",
+                description = "Understand your symptoms better. Get insights before you consult.",
+                iconResId = R.drawable.baseline_search_24, // Using a search icon for symptom analysis
+                targetActivity = SymptomAnalayzes::class.java, // Link to your existing SymptomAnalayzes
+                onClick = { context.startActivity(Intent(it, SymptomAnalayzes::class.java)) }
+            )
+            // Add more utility items here
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Explore Utilities",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-        // Reminder Card
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .clickable {
-                    // TODO: Replace ReminderActivity::class.java with your actual Reminder activity
-                    // context.startActivity(Intent(context, ReminderActivity::class.java))
-                },
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        // Animated Introductory Text
+        AnimatedVisibility(
+            visible = showUtilitiesContent,
+            enter = fadeIn(animationSpec = tween(durationMillis = 300, delayMillis = 100)) +
+                    slideInVertically(initialOffsetY = { -it / 2 }, animationSpec = tween(durationMillis = 400, delayMillis = 100))
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Reminders", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text("Set medicine reminders, appointments", style = MaterialTheme.typography.bodyMedium)
-                }
-                Icon(
-                    painter = painterResource(id = R.drawable.baseline_alarm_24), // Reminder icon
-                    contentDescription = "Reminders",
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Your Health, Your Tools!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold, // Make it extra bold for impact
+                    color = MaterialTheme.colorScheme.primary, // Use primary color for the main heading
+                    modifier = Modifier.padding(bottom = 8.dp) // Increased bottom padding
                 )
+                Text(
+                    text = "Dive into our practical tools designed to support your well-being, from timely reminders to immediate emergency support and smart symptom analysis",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 24.sp,
+                    textAlign = TextAlign.Center, // Center align the text
+                    modifier = Modifier.padding(horizontal = 8.dp) // Add horizontal padding
+                )
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
 
-        // Emergency Call Card
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .clickable {
-                    // TODO: Replace EmergencyCallActivity::class.java with your actual Emergency call activity
-                    // context.startActivity(Intent(context, EmergencyCallActivity::class.java))
-                },
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+
+        // Animated visibility for each utility card
+        utilities.forEachIndexed { index, item ->
+            AnimatedVisibility(
+                visible = showUtilitiesContent,
+                enter = fadeIn(animationSpec = tween(durationMillis = 300, delayMillis = 200 + index * 100)) +
+                        slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(durationMillis = 400, delayMillis = 200 + index * 100)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column {
-                    Text("Emergency Contact", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text("Quick access to emergency services", style = MaterialTheme.typography.bodyMedium)
-                }
-                Icon(
-                    painter = painterResource(id = R.drawable.baseline_local_hospital_24), // Emergency icon
-                    contentDescription = "Emergency Contact",
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer
-                )
+                UtilityCard(item = item)
             }
         }
     }
 }
+
+@Composable
+fun UtilityCard(item: UtilityItem) {
+    val context = LocalContext.current
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .clickable {
+                item.onClick?.invoke(context)
+                // Or if using targetActivity directly:
+                // item.targetActivity?.let { activityClass ->
+                //     context.startActivity(Intent(context, activityClass))
+                // }
+            },
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant) // A versatile background color
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    item.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    item.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                )
+            }
+            Icon(
+                painter = painterResource(id = item.iconResId),
+                contentDescription = item.title,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.primary // Use primary color for icons for consistency
+            )
+        }
+    }
+}
+
 
 @Composable
 fun ProfileContent() {
@@ -436,25 +540,6 @@ fun ProfileContent() {
         )
     }
 }
-
-@Composable
-fun ChatbotContent() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("Chatbot is accessible via the navigation bar icon!", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
-        Icon(
-            painter = painterResource(id = R.drawable.baseline_android_24), // Android bot icon
-            contentDescription = "Chatbot",
-            modifier = Modifier.size(96.dp),
-            tint = MaterialTheme.colorScheme.onBackground
-        )
-    }
-}
-
 
 @Composable
 fun ServiceGrid() {
