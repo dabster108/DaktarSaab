@@ -11,4 +11,12 @@
     <color name="pharmacy_color">#00FF00</color> <!-- Green -->
     <color name="clinic_color">#0000FF</color>   <!-- Blue -->
     <color name="gas_station_color">#FFFF00</color> <!-- Yellow -->
+
+    <!-- XRay Analysis app colors -->
+    <color name="splash_background">#FF0A84FF</color>
+    <color name="welcome_background">#FFF5F5F5</color>
+    <color name="primary_text">#FF333333</color>
+    <color name="secondary_text">#FF666666</color>
+    <color name="card_background">#FFFFFFFF</color>
+    <color name="accent_color">#FF0A84FF</color>
 </resources>

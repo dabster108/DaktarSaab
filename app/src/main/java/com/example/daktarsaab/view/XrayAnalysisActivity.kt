@@ -34,9 +34,7 @@ import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -45,7 +43,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import com.airbnb.lottie.compose.*
+import com.example.daktarsaab.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -61,6 +61,9 @@ import java.util.concurrent.TimeUnit
 class XrayAnalysisActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.BLACK
+
 
         setContent {
             com.example.daktarsaab.ui.theme.DaktarSaabTheme(content = {
@@ -75,6 +78,37 @@ class XrayAnalysisActivity : ComponentActivity() {
     }
 }
 
+@Composable
+fun HowThisWorksDescription() {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(
+            text = "How This App Works",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            text = "1. Tap on the card below to select an X-ray image from your device.",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Text(
+            text = "2. Once an image is selected, click the 'Analyze X-Ray Image' button.",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Text(
+            text = "3. The app will process the image using AI and display the analysis results.",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Text(
+            text = "4. Review the findings. Remember, this is for informational purposes and not a substitute for professional medical advice.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun XrayAnalysisScreen() {
@@ -86,12 +120,16 @@ fun XrayAnalysisScreen() {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
-
-    // State for splash screen
-    var showSplashScreen by remember { mutableStateOf(true) }
-    val alpha = remember { Animatable(0f) }
-    val scale = remember { Animatable(0.5f) }
     val density = LocalDensity.current
+
+    var introVisible by remember { mutableStateOf(false) }
+    var mainContentVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        introVisible = true
+        delay(300) // Stagger the main content animation
+        mainContentVisible = true
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -111,55 +149,51 @@ fun XrayAnalysisScreen() {
         }
     }
 
-    LaunchedEffect(key1 = true) {
-        // Animate splash screen in
-        alpha.animateTo(1f, animationSpec = tween(1500))
-        scale.animateTo(1f, animationSpec = tween(1000, delayMillis = 500))
-        delay(2000) // Keep splash screen for 2 seconds
-        // Animate splash screen out and show main content
-        alpha.animateTo(0f, animationSpec = tween(500))
-        scale.animateTo(0.5f, animationSpec = tween(500))
-        delay(500) // Wait for fade out
-        showSplashScreen = false
-    }
-
     Scaffold(
         topBar = {
-            AnimatedVisibility(
-                visible = !showSplashScreen,
-                enter = fadeIn() + slideInVertically { with(density) { -40.dp.roundToPx() } },
-                exit = fadeOut() + slideOutVertically { with(density) { -40.dp.roundToPx() } }
-            ) {
-                TopAppBar(
-                    title = { Text("X-Ray Analysis", fontWeight = FontWeight.Bold) },
-                    navigationIcon = {
-                        IconButton(onClick = { (context as? Activity)?.finish() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+            TopAppBar(
+                title = { Text("X-Ray Analysis", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { (context as? Activity)?.finish() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
                 )
-            }
+            )
         }
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Main content
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .padding(paddingValues) // Apply padding from Scaffold for status bar, etc.
+                .fillMaxSize()
+                .verticalScroll(scrollState),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             AnimatedVisibility(
-                visible = !showSplashScreen,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { with(density) { 40.dp.roundToPx() } }),
-                exit = fadeOut() + slideOutVertically(targetOffsetY = { with(density) { 40.dp.roundToPx() } }),
-                modifier = Modifier.fillMaxSize()
+                visible = introVisible,
+                enter = slideInVertically(
+                    initialOffsetY = { with(density) { -40.dp.roundToPx() } }
+                ) + fadeIn(animationSpec = tween(durationMillis = 500)),
+                exit = fadeOut()
+            ) {
+                HowThisWorksDescription()
+            }
+
+            AnimatedVisibility(
+                visible = mainContentVisible,
+                enter = slideInVertically(
+                    initialOffsetY = { with(density) { 40.dp.roundToPx() } }
+                ) + fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = 200)),
+                 exit = fadeOut()
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(padding)
-                        .padding(16.dp)
-                        .fillMaxSize()
-                        .verticalScroll(scrollState),
+                        .padding(horizontal = 16.dp) // Keep horizontal padding for content
+                        .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Image selection area
@@ -168,7 +202,8 @@ fun XrayAnalysisScreen() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .wrapContentHeight()
-                                .heightIn(min = 200.dp, max = 400.dp),
+                                .heightIn(min = 200.dp, max = 400.dp)
+                                .padding(top = 16.dp),
                             shape = RoundedCornerShape(16.dp),
                             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                         ) {
@@ -189,6 +224,7 @@ fun XrayAnalysisScreen() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(300.dp)
+                                .padding(top = 16.dp)
                                 .clickable {
                                     imagePickerLauncher.launch("image/*")
                                 },
@@ -233,6 +269,8 @@ fun XrayAnalysisScreen() {
                                 errorMessage = null
                                 resultText = ""
                                 scope.launch {
+                                    delay(100) // Allow UI to recompose and show loader
+                                    scrollState.animateScrollTo(scrollState.maxValue)
                                     try {
                                         resultText = analyzeImageWithGemini(context, imageUri!!)
                                     } catch (e: Exception) {
@@ -296,84 +334,49 @@ fun XrayAnalysisScreen() {
                             )
                         }
                     }
+                } // End of AnimatedVisibility for main content's Column
+            } // End of AnimatedVisibility for main content
 
-                    // Loading, Error, or Results display
-                    when {
-                        isLoading -> {
-                            XrayLoadingAnimation()
-                        }
-                        errorMessage != null -> {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer
-                                ),
-                                shape = RoundedCornerShape(12.dp)
+            // Loading, Error, or Results display - Placed outside main content animation
+            // so it can appear while main content might be animating out (if that was a feature)
+            // For now, it's part of the overall scrollable column.
+            // Ensure this part is also within the horizontal padding if needed, or fill width.
+            Box(modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+                 when {
+                    isLoading -> {
+                        XrayLoadingAnimation()
+                    }
+                    errorMessage != null -> {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Error,
-                                        contentDescription = "Error",
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = errorMessage!!,
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Error,
+                                    contentDescription = "Error",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = errorMessage!!,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
-                        resultText.isNotEmpty() -> {
-                            XrayResultDisplay(resultText)
-                        }
                     }
-                }
-            }
-
-            // Splash Screen Overlay
-            AnimatedVisibility(
-                visible = showSplashScreen,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.primary),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocalHospital,
-                        contentDescription = "DaktarSaab Logo",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier
-                            .size(120.dp)
-                            .alpha(alpha.value)
-                            .scale(scale.value)
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "DaktarSaab",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.alpha(alpha.value)
-                    )
-                    Text(
-                        text = "X-Ray Analysis",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.alpha(alpha.value)
-                    )
+                    resultText.isNotEmpty() -> {
+                        XrayResultDisplay(resultText)
+                    }
                 }
             }
         }
@@ -441,7 +444,6 @@ fun XrayLoadingAnimation() {
     }
 }
 
-// Rest of the code remains the same (XrayResultDisplay, DiagnosisSection, parseResultText, analyzeImageWithGemini, etc.)
 @Composable
 fun XrayResultDisplay(resultText: String) {
     Card(
