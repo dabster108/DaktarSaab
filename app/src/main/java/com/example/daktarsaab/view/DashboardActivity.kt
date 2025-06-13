@@ -1,5 +1,4 @@
 package com.example.daktarsaab.view
-
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -42,6 +41,12 @@ import kotlinx.coroutines.delay
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme.colorScheme
+import kotlinx.coroutines.launch
+
+// Import for Material Icons (make sure you have `androidx.compose.material:material-icons-extended` in your build.gradle)
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChatBubble // For a filled chat bubble icon
+// import androidx.compose.material.icons.outlined.ChatBubble // If you prefer an outlined version
 
 
 // Data class for Medical Articles
@@ -80,6 +85,8 @@ fun DashboardScreen() {
 
     // State for selected navigation item
     var selectedNavItem by remember { mutableStateOf(0) }
+
+    val context = LocalContext.current // Hoist context to composable scope
 
     // LaunchedEffect to trigger animations sequentially after a delay
     LaunchedEffect(true) {
@@ -150,7 +157,13 @@ fun DashboardScreen() {
                         // Home
                         NavigationBarItem(
                             selected = selectedNavItem == 0,
-                            onClick = { selectedNavItem = 0 },
+                            onClick = {
+                                selectedNavItem = 0
+                                // Refresh DashboardActivity if already open
+                                if (context is DashboardActivity) {
+                                    context.recreate()
+                                }
+                            },
                             icon = {
                                 Icon(
                                     painter = painterResource(id = R.drawable.baseline_home_24),
@@ -161,30 +174,52 @@ fun DashboardScreen() {
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) // Subtle indicator
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                             )
                         )
-                        // Align Vertical Bottom (e.g., for Appointments/History)
+                        // Utilities
                         NavigationBarItem(
                             selected = selectedNavItem == 1,
                             onClick = { selectedNavItem = 1 },
                             icon = {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.baseline_align_vertical_bottom_24),
-                                    contentDescription = "Appointments"
+                                    painter = painterResource(id = R.drawable.baseline_handyman_24), // Example icon for utilities
+                                    contentDescription = "Utilities"
                                 )
                             },
-                            label = { Text("Appointments") },
+                            label = { Text("Utilities") },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                             )
                         )
-                        // Person Pin (e.g., for Profile/Settings)
+                        // Chatbot (using a more bot-like icon) - Moved before Profile
                         NavigationBarItem(
-                            selected = selectedNavItem == 2,
-                            onClick = { selectedNavItem = 2 },
+                            selected = selectedNavItem == 2, // Changed index
+                            onClick = {
+                                selectedNavItem = 2 // Changed index
+                                // Open ChatbotActivity
+                                context.startActivity(Intent(context, ChatbotActivity::class.java))
+                            },
+                            icon = {
+                                // Changed icon to a more "bot-like" icon
+                                Icon(
+                                    painter = painterResource(id = R.drawable.baseline_android_24), // Example: Android bot icon
+                                    contentDescription = "Chatbot"
+                                )
+                            },
+                            label = { Text("Chatbot") },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            )
+                        )
+                        // Profile
+                        NavigationBarItem(
+                            selected = selectedNavItem == 3, // Changed index
+                            onClick = { selectedNavItem = 3 }, // Changed index
                             icon = {
                                 Icon(
                                     painter = painterResource(id = R.drawable.baseline_person_pin_24),
@@ -192,23 +227,6 @@ fun DashboardScreen() {
                                 )
                             },
                             label = { Text("Profile") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                            )
-                        )
-                        // Person Search (e.g., for Find Doctor)
-                        NavigationBarItem(
-                            selected = selectedNavItem == 3,
-                            onClick = { selectedNavItem = 3 },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.baseline_person_search_24),
-                                    contentDescription = "Find Doctor"
-                                )
-                            },
-                            label = { Text("Find Doctor") },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -228,74 +246,215 @@ fun DashboardScreen() {
                     .verticalScroll(rememberScrollState()), // **Make the column scrollable**
                 verticalArrangement = Arrangement.spacedBy(20.dp) // Spacing between vertical elements
             ) {
-                // Animated visibility for Service Grid
-                AnimatedVisibility(
-                    visible = showServiceGrid,
-                    enter = slideInVertically(
-                        initialOffsetY = { -it / 2 }, // Slide in from top
-                        animationSpec = tween(durationMillis = 500)
-                    ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
-                ) {
-                    ServiceGrid() // Composable for service cards
+                // Display content based on selectedNavItem
+                when (selectedNavItem) {
+                    0 -> HomeContent(
+                        showServiceGrid = showServiceGrid,
+                        showMedicalArticles = showMedicalArticles,
+                        showRecentHistoryLabel = showRecentHistoryLabel,
+                        showRecentHistory = showRecentHistory
+                    )
+                    1 -> UtilitiesContent() // New Utilities content
+                    2 -> ChatbotContent() // Placeholder for Chatbot content (actual activity is launched)
+                    3 -> ProfileContent() // Placeholder for Profile content
                 }
 
-                // Animated visibility for Medical Articles
-                AnimatedVisibility(
-                    visible = showMedicalArticles,
-                    enter = slideInHorizontally(
-                        initialOffsetX = { -it }, // Slide in from left
-                        animationSpec = tween(durationMillis = 500)
-                    ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
-                ) {
-                    // List of medical articles to display
-                    val articles = remember {
-                        listOf(
-                            MedicalArticle(
-                                title = "Medical Articles",
-                                subtitle = "Updated research & trends",
-                                link = "https://www.healthhub.com",
-                                iconResId = R.drawable.baseline_article_24
-                            ),
-                            MedicalArticle(
-                                title = "Mental Wellness",
-                                subtitle = "Tips for a healthy mind",
-                                link = "https://www.mindcare.org",
-                                iconResId = R.drawable.baseline_self_improvement_24
-                            ),
-                            MedicalArticle(
-                                title = "Nutrition Guides",
-                                subtitle = "Eat well, live long",
-                                link = "https://www.facebook.com", // Example link
-                                iconResId = R.drawable.baseline_fastfood_24
-                            )
-                        )
-                    }
-                    MedicalArticlesCard(articles = articles) // Composable for medical articles carousel
-                }
-
-                // Animated visibility for "Recent History" label
-                AnimatedVisibility(
-                    visible = showRecentHistoryLabel,
-                    enter = fadeIn(animationSpec = tween(durationMillis = 300)) // Simply fade in
-                ) {
-                    Text("Recent History", style = MaterialTheme.typography.titleMedium)
-                }
-
-                // Animated visibility for Recent History content
-                AnimatedVisibility(
-                    visible = showRecentHistory,
-                    enter = slideInVertically(
-                        initialOffsetY = { it }, // Slide in from bottom
-                        animationSpec = tween(durationMillis = 500)
-                    ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
-                ) {
-                    RecentHistory() // Composable for recent history list
-                }
                 Spacer(modifier = Modifier.height(16.dp)) // Add some space at the bottom for the navbar
             }
         }
     }, colorScheme = colorScheme)
 }
+
+@Composable
+fun HomeContent(
+    showServiceGrid: Boolean,
+    showMedicalArticles: Boolean,
+    showRecentHistoryLabel: Boolean,
+    showRecentHistory: Boolean
+) {
+    // Animated visibility for Service Grid
+    AnimatedVisibility(
+        visible = showServiceGrid,
+        enter = slideInVertically(
+            initialOffsetY = { -it / 2 }, // Slide in from top
+            animationSpec = tween(durationMillis = 500)
+        ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
+    ) {
+        ServiceGrid() // Composable for service cards
+    }
+
+    // Animated visibility for Medical Articles
+    AnimatedVisibility(
+        visible = showMedicalArticles,
+        enter = slideInHorizontally(
+            initialOffsetX = { -it }, // Slide in from left
+            animationSpec = tween(durationMillis = 500)
+        ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
+    ) {
+        // List of medical articles to display
+        val articles = remember {
+            listOf(
+                MedicalArticle(
+                    title = "Medical Articles",
+                    subtitle = "Updated research & trends",
+                    link = "https://www.healthhub.com",
+                    iconResId = R.drawable.baseline_article_24
+                ),
+                MedicalArticle(
+                    title = "Mental Wellness",
+                    subtitle = "Tips for a healthy mind",
+                    link = "https://www.mindcare.org",
+                    iconResId = R.drawable.baseline_self_improvement_24
+                ),
+                MedicalArticle(
+                    title = "Nutrition Guides",
+                    subtitle = "Eat well, live long",
+                    link = "https://www.facebook.com", // Example link
+                    iconResId = R.drawable.baseline_fastfood_24
+                )
+            )
+        }
+        MedicalArticlesCard(articles = articles) // Composable for medical articles carousel
+    }
+
+    // Animated visibility for "Recent History" label
+    AnimatedVisibility(
+        visible = showRecentHistoryLabel,
+        enter = fadeIn(animationSpec = tween(durationMillis = 300)) // Simply fade in
+    ) {
+        Text("Recent History", style = MaterialTheme.typography.titleMedium)
+    }
+
+    // Animated visibility for Recent History content
+    AnimatedVisibility(
+        visible = showRecentHistory,
+        enter = slideInVertically(
+            initialOffsetY = { it }, // Slide in from bottom
+            animationSpec = tween(durationMillis = 500)
+        ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
+    ) {
+        RecentHistory() // Composable for recent history list
+    }
+}
+
+@Composable
+fun UtilitiesContent() {
+    val context = LocalContext.current
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Explore Utilities",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        // Reminder Card
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .clickable {
+                    // TODO: Replace ReminderActivity::class.java with your actual Reminder activity
+                    // context.startActivity(Intent(context, ReminderActivity::class.java))
+                },
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Reminders", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text("Set medicine reminders, appointments", style = MaterialTheme.typography.bodyMedium)
+                }
+                Icon(
+                    painter = painterResource(id = R.drawable.baseline_alarm_24), // Reminder icon
+                    contentDescription = "Reminders",
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+
+        // Emergency Call Card
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .clickable {
+                    // TODO: Replace EmergencyCallActivity::class.java with your actual Emergency call activity
+                    // context.startActivity(Intent(context, EmergencyCallActivity::class.java))
+                },
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Emergency Contact", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text("Quick access to emergency services", style = MaterialTheme.typography.bodyMedium)
+                }
+                Icon(
+                    painter = painterResource(id = R.drawable.baseline_local_hospital_24), // Emergency icon
+                    contentDescription = "Emergency Contact",
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileContent() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Profile Section Coming Soon!", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(16.dp))
+        Icon(
+            painter = painterResource(id = R.drawable.baseline_construction_24), // Under construction icon
+            contentDescription = "Under Construction",
+            modifier = Modifier.size(96.dp),
+            tint = MaterialTheme.colorScheme.onBackground
+        )
+    }
+}
+
+@Composable
+fun ChatbotContent() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Chatbot is accessible via the navigation bar icon!", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(16.dp))
+        Icon(
+            painter = painterResource(id = R.drawable.baseline_android_24), // Android bot icon
+            contentDescription = "Chatbot",
+            modifier = Modifier.size(96.dp),
+            tint = MaterialTheme.colorScheme.onBackground
+        )
+    }
+}
+
 
 @Composable
 fun ServiceGrid() {
@@ -330,30 +489,40 @@ fun ServiceGrid() {
 
 @Composable
 fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
-    val context = LocalContext.current // Get context for starting activities
+    val context = LocalContext.current
+    // For X-ray Scan, we want it to loop forever, others play once.
+    val playLottieForever = title == "X-ray Scan"
+
+    val composition by rememberLottieComposition(LottieCompositionSpec.Asset(assetName))
+    val progress by animateLottieCompositionAsState(
+        composition,
+        iterations = if (playLottieForever) LottieConstants.IterateForever else 1,
+        speed = 1f,
+        restartOnPlay = false // Ensure it doesn't restart when it's supposed to be static
+    )
+
     Card(
-        shape = RoundedCornerShape(16.dp), // Rounded corners for the card
+        shape = RoundedCornerShape(16.dp),
         modifier = modifier
-            .height(160.dp) // Fixed height for the card
+            .height(160.dp)
             .fillMaxWidth()
-            .clickable { // Make the card clickable
+            .clickable {
                 when (title) {
                     "X-ray Scan" -> {
-                        // context.startActivity(Intent(context, XrayAnalysisActivity::class.java)) // Uncomment and replace with actual activity
+                        context.startActivity(Intent(context, XrayAnalysisActivity::class.java))
                     }
                     "Symptom Analyzer" -> {
-                        // context.startActivity(Intent(context, SymptomAnalayzes::class.java)) // Uncomment and replace with actual activity
+                        context.startActivity(Intent(context, SymptomAnalayzes::class.java))
                     }
                     "Maps" -> {
-                        // context.startActivity(Intent(context, MapsActivity::class.java)) // Uncomment and replace with actual activity
+                        context.startActivity(Intent(context, MapsActivity::class.java))
                     }
                     "Doctor Booking" -> {
-                        // context.startActivity(Intent(context, DoctorBookingActivity::class.java)) // Example for a new activity
+                        // context.startActivity(Intent(context, DoctorBookingActivity::class.java))
                     }
-                    // Add other cases for navigation if needed
                 }
             },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) // Card shadow
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -362,21 +531,18 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
                 .padding(16.dp)
                 .fillMaxSize()
         ) {
-            // Lottie animation for the service icon
-            val composition by rememberLottieComposition(LottieCompositionSpec.Asset(assetName))
-            val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever) // Loop animation
             LottieAnimation(
                 composition,
                 progress,
-                modifier = Modifier.size(90.dp) // Size of the Lottie animation
+                modifier = Modifier.size(90.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp)) // Space between animation and text
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 minLines = 2,
-                overflow = TextOverflow.Ellipsis, // Ellipsize long text
+                overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -403,7 +569,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
             .fillMaxWidth()
             .height(180.dp) // Fixed height for the articles card
             .clip(RoundedCornerShape(16.dp)) // Rounded corners
-            .background(Color(0xFF3366CC)), // Background color for the card
+            .background(MaterialTheme.colorScheme.primary), // Use primary color from theme
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         HorizontalPager(
@@ -441,7 +607,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
                     ) {
                         Text(
                             text = "Explore!",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 20.sp,
                             style = MaterialTheme.typography.bodyLarge
@@ -449,18 +615,18 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
                         Icon(
                             painter = painterResource(id = R.drawable.baseline_arrow_forward_24), // Forward arrow icon
                             contentDescription = "Explore link",
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Text(
                         text = article.title,
-                        color = Color.Yellow,
+                        color = MaterialTheme.colorScheme.inversePrimary, // Use a contrasting color from theme
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
                         text = article.subtitle,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -468,7 +634,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
                 Icon(
                     painter = painterResource(id = article.iconResId),
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(60.dp)
                 )
             }
@@ -480,8 +646,8 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
             pageCount = articles.size,
             modifier = Modifier
                 .padding(vertical = 8.dp),
-            activeColor = Color.White,
-            inactiveColor = Color.White.copy(alpha = 0.5f),
+            activeColor = MaterialTheme.colorScheme.onPrimary,
+            inactiveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f),
             indicatorWidth = 8.dp,
             indicatorHeight = 8.dp,
             spacing = 8.dp
