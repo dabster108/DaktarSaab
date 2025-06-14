@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest package="com.example.daktarsaab"
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.example.daktarsaab">
 
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -21,15 +21,19 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
-    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
 
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
+
             <data android:scheme="geo" />
         </intent>
         <intent>
             <action android:name="android.intent.action.DIAL" />
+
             <data android:scheme="tel" />
         </intent>
     </queries>
@@ -46,7 +50,17 @@
         android:usesCleartextTraffic="true"
         tools:replace="android:allowBackup"
         tools:targetApi="31">
+        <activity
+            android:name=".view.DoctorBookActivity"
+            android:exported="true"
+            android:label="@string/title_activity_doctor_book"
+            android:theme="@style/Theme.DaktarSaab">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
 
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".view.DashboardActivity"
             android:exported="true"
@@ -54,10 +68,10 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".view.XrayAnalysisActivity"
             android:exported="true"
@@ -65,10 +79,10 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".view.SymptomAnalayzes"
             android:exported="true"
@@ -76,10 +90,10 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".view.EmergencyCallActivity"
             android:exported="true"
@@ -87,6 +101,7 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -94,6 +109,7 @@
         <receiver
             android:name=".ReminderBroadcastReceiver"
             android:exported="false" />
+
         <activity
             android:name=".view.ReminderActivity"
             android:exported="true"
@@ -101,10 +117,10 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".view.ChatbotActivity"
             android:exported="true"
@@ -112,10 +128,10 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".view.MapsActivity"
             android:exported="true"
@@ -123,10 +139,10 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".view.ForgotPasswordActivity"
             android:exported="true"
@@ -134,10 +150,10 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".view.SignupActivity"
             android:exported="true"
@@ -145,10 +161,10 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".view.LoginActivity"
             android:exported="true"
@@ -156,10 +172,10 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".view.MainActivity"
             android:exported="true"
@@ -167,6 +183,7 @@
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

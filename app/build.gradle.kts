@@ -71,6 +71,7 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.database)
+    implementation(libs.compose.ui.graphics)
     androidTestImplementation(platform(libs.compose.bom))
 
     implementation(libs.core.ktx)
