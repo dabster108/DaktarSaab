@@ -4,52 +4,48 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.OnBackPressedCallback
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
 import com.example.daktarsaab.view.ui.theme.DaktarSaabTheme
-import com.airbnb.lottie.compose.*
-import androidx.activity.OnBackPressedCallback
-import androidx.compose.animation.animateContentSize
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.LifecycleOwner // Import LifecycleOwner
+import androidx.lifecycle.LifecycleOwner
 
 class DoctorBookActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,54 +80,110 @@ fun DoctorBookingContainer() {
     val OutlineColor = Color(0xFFBBDEFB)
 
     var showBookingGrid by remember { mutableStateOf(false) }
+    var selectedCategory by remember { mutableStateOf<DoctorCategory?>(null) }
 
     val context = LocalContext.current
     val activity = context as? ComponentActivity
-    val lifecycleOwner = LocalContext.current as LifecycleOwner // Get LifecycleOwner
+    val lifecycleOwner = LocalContext.current as LifecycleOwner
 
-    // Handle back button press
-    DisposableEffect(showBookingGrid, activity, lifecycleOwner) { // Add lifecycleOwner to keys
-        val callback = object : OnBackPressedCallback(true /* enabled */) {
+    DisposableEffect(showBookingGrid, selectedCategory, activity, lifecycleOwner) {
+        val callback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (showBookingGrid) {
-                    showBookingGrid = false // Go back to WelcomeScreen
-                } else {
-                    // If on WelcomeScreen, let the default back behavior (exit app) happen
-                    // To avoid infinite loop, disable callback temporarily and then call onBackPressed
-                    isEnabled = false // Disable this callback to allow default behavior
-                    activity?.onBackPressedDispatcher?.onBackPressed()
+                when {
+                    selectedCategory != null -> selectedCategory = null
+                    showBookingGrid -> showBookingGrid = false
+                    else -> {
+                        isEnabled = false
+                        activity?.onBackPressedDispatcher?.onBackPressed()
+                    }
                 }
             }
         }
-        // Corrected: Pass lifecycleOwner and callback directly
         activity?.onBackPressedDispatcher?.addCallback(lifecycleOwner, callback)
-
-        onDispose {
-            callback.remove()
-        }
+        onDispose { callback.remove() }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(LightBlueBackground)
             .padding(16.dp)
     ) {
-        if (showBookingGrid) {
-            DoctorBookingGridScreen(
-                primaryBlue = PrimaryBlue,
-                cardBackground = CardBackground,
-                textDark = TextDark,
-                textLight = TextLight,
-                outlineColor = OutlineColor,
-                onBackToWelcome = { showBookingGrid = false }
-            )
-        } else {
-            WelcomeScreen(
-                onStartBookingClick = { showBookingGrid = true },
-                primaryBlue = PrimaryBlue,
-                cardBackground = CardBackground,
-                textDark = TextDark
+        AnimatedContent(
+            targetState = showBookingGrid,
+            transitionSpec = {
+                (slideInHorizontally(animationSpec = tween(600)) { fullWidth -> if (targetState) fullWidth else -fullWidth } + fadeIn(animationSpec = tween(300)))
+                    .togetherWith(slideOutHorizontally(animationSpec = tween(600)) { fullWidth -> if (targetState) -fullWidth else fullWidth } + fadeOut(animationSpec = tween(300)))
+            }, label = "Screen Transition"
+        ) { targetShowGrid ->
+            if (targetShowGrid) {
+                DoctorBookingGridScreen(
+                    primaryBlue = PrimaryBlue,
+                    cardBackground = CardBackground,
+                    textDark = TextDark,
+                    textLight = TextLight,
+                    outlineColor = OutlineColor,
+                    onBackToWelcome = { showBookingGrid = false },
+                    onCategorySelected = { category -> selectedCategory = category }
+                )
+            } else {
+                WelcomeScreen(
+                    onStartBookingClick = { showBookingGrid = true },
+                    primaryBlue = PrimaryBlue,
+                    cardBackground = CardBackground,
+                    textDark = TextDark
+                )
+            }
+        }
+
+        // Show small popup dialog for details
+        selectedCategory?.let { category ->
+            AlertDialog(
+                onDismissRequest = { selectedCategory = null },
+                containerColor = Color.White,
+                title = {
+                    Text(
+                        "Book appointment for ${category.title}",
+                        color = PrimaryBlue,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                text = {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Image(
+                            painter = painterResource(id = category.iconRes),
+                            contentDescription = category.title,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Fit
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            category.description,
+                            color = TextDark,
+                            textAlign = TextAlign.Center,
+                            fontSize = 16.sp,
+                            lineHeight = 22.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        println("Booking for ${category.title}!")
+                        selectedCategory = null
+                    }) { Text("Book Now") }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { selectedCategory = null }) { Text("Close") }
+                }
             )
         }
     }
@@ -145,10 +197,7 @@ fun WelcomeScreen(
     textDark: Color
 ) {
     var contentVisible by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        contentVisible = true
-    }
+    LaunchedEffect(Unit) { contentVisible = true }
 
     Column(
         modifier = Modifier
@@ -157,8 +206,7 @@ fun WelcomeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Spacer(modifier = Modifier.height(8.dp))
-
+        Spacer(Modifier.height(8.dp))
         Text(
             text = "Doctor Booking",
             fontSize = 28.sp,
@@ -168,12 +216,9 @@ fun WelcomeScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        AnimatedVisibility(
-            visible = contentVisible,
-            enter = fadeIn(animationSpec = tween(durationMillis = 600))
-        ) {
+        AnimatedVisibility(visible = contentVisible, enter = fadeIn(animationSpec = tween(600))) {
             Row(
-                modifier = Modifier
+                Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -188,7 +233,6 @@ fun WelcomeScreen(
                         .height(140.dp)
                         .padding(end = 4.dp)
                 )
-
                 Text(
                     text = "Welcome to Daktar Saab!\nDoctor Booking!",
                     fontSize = 20.sp,
@@ -205,15 +249,15 @@ fun WelcomeScreen(
 
         AnimatedVisibility(
             visible = contentVisible,
-            enter = slideInVertically(initialOffsetY = { -it / 2 }, animationSpec = tween(durationMillis = 500, delayMillis = 100)) + fadeIn()
+            enter = slideInVertically(initialOffsetY = { fullHeight -> -fullHeight / 2 }, animationSpec = tween(500, 100)) + fadeIn()
         ) {
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = cardBackground),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                elevation = CardDefaults.cardElevation(4.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(Modifier.padding(16.dp)) {
                     Text(
                         text = "How It Works:",
                         fontSize = 18.sp,
@@ -235,15 +279,15 @@ fun WelcomeScreen(
 
         AnimatedVisibility(
             visible = contentVisible,
-            enter = slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(durationMillis = 500, delayMillis = 200)) + fadeIn()
+            enter = slideInVertically(initialOffsetY = { fullHeight -> fullHeight / 2 }, animationSpec = tween(500, 200)) + fadeIn()
         ) {
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = cardBackground),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                elevation = CardDefaults.cardElevation(4.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(Modifier.padding(16.dp)) {
                     Text(
                         text = "Specialties Available:",
                         fontSize = 18.sp,
@@ -261,28 +305,20 @@ fun WelcomeScreen(
             }
         }
 
-        AnimatedVisibility(
-            visible = contentVisible,
-            enter = fadeIn(animationSpec = tween(durationMillis = 600, delayMillis = 300))
-        ) {
+        AnimatedVisibility(visible = contentVisible, enter = fadeIn(tween(600, 300))) {
             Button(
                 onClick = onStartBookingClick,
-                modifier = Modifier
+                Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
-                shape = RoundedCornerShape(12.dp),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                elevation = ButtonDefaults.buttonElevation(6.dp)
             ) {
-                Text(
-                    text = "Start Booking",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                Text("Start Booking", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -293,177 +329,119 @@ fun DoctorBookingGridScreen(
     textDark: Color,
     textLight: Color,
     outlineColor: Color,
-    onBackToWelcome: () -> Unit
+    onBackToWelcome: () -> Unit,
+    onCategorySelected: (DoctorCategory) -> Unit
 ) {
-    val categories = listOf(
-        DoctorCategory(
-            "ENT",
-            R.drawable.ent,
-            "Specializes in conditions of the ear, nose, and throat (Otolaryngology)."
-        ),
-        DoctorCategory(
-            "Neuro",
-            R.drawable.head,
-            "Focuses on disorders of the nervous system, including the brain, spinal code, and nerves (Neurology)."
-        ),
-        DoctorCategory(
-            "Skin",
-            R.drawable.skin,
-            "Deals with diseases of the skin, hair, and nails (Dermatology)."
-        ),
-        DoctorCategory(
-            "Lungs",
-            R.drawable.lungs,
-            "Specializes in diseases of the respiratory tract, including the lungs and bronchial tubes (Pulmonology)."
-        ),
-        DoctorCategory(
-            "Heart",
-            R.drawable.heart,
-            "Focuses on disorders of the heart and blood vessels (Cardiology)."
-        ),
-        DoctorCategory(
-            "Ortho",
-            R.drawable.bone,
-            "Specializes in conditions affecting the musculoskeletal system, including bones, joints, ligaments, tendons, and muscles (Orthopedics)."
+    val categories = remember {
+        listOf(
+            DoctorCategory("ENT", R.drawable.ent, "Specializes in conditions of the ear, nose, and throat."),
+            DoctorCategory("Neuro", R.drawable.head, "Focuses on disorders of the nervous system."),
+            DoctorCategory("Skin", R.drawable.skin, "Deals with diseases of the skin, hair, and nails."),
+            DoctorCategory("Lungs", R.drawable.lungs, "Specializes in diseases of the respiratory tract."),
+            DoctorCategory("Heart", R.drawable.heart, "Focuses on disorders of the heart and blood vessels."),
+            DoctorCategory("Ortho", R.drawable.bone, "Specializes in conditions affecting the musculoskeletal system.")
         )
-    )
+    }
 
     val context = LocalContext.current
     val activity = context as? ComponentActivity
-    val lifecycleOwner = LocalContext.current as LifecycleOwner // Get LifecycleOwner
+    val lifecycleOwner = LocalContext.current as LifecycleOwner
 
-    // Handle back button specifically for this screen
-    DisposableEffect(activity, lifecycleOwner) { // Add lifecycleOwner to keys
-        val callback = object : OnBackPressedCallback(true /* enabled */) {
-            override fun handleOnBackPressed() {
-                onBackToWelcome()
-            }
+    DisposableEffect(activity, lifecycleOwner) {
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = onBackToWelcome()
         }
-        // Corrected: Pass lifecycleOwner and callback directly
         activity?.onBackPressedDispatcher?.addCallback(lifecycleOwner, callback)
-
-        onDispose {
-            callback.remove()
-        }
+        onDispose { callback.remove() }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        item {
-            // Spacer to push content down from the top
-            Spacer(modifier = Modifier.height(24.dp)) // Added spacing here
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Book an Appointment",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = primaryBlue,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            textAlign = TextAlign.Center
+        )
 
-            Text(
-                text = "Book an Appointment",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = primaryBlue,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 16.dp),
-                textAlign = TextAlign.Center
-            )
-        }
-
-        items(categories.chunked(2)) { rowItems ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                rowItems.forEach { category ->
-                    DoctorItem(
-                        category = category,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp),
-                        primaryBlue = primaryBlue,
-                        cardBackground = cardBackground,
-                        textDark = textDark,
-                        textLight = textLight,
-                        outlineColor = outlineColor
-                    )
-                }
-                if (rowItems.size == 1) {
-                    Spacer(modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
-                }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            items(categories) { category ->
+                DoctorCategoryCard(
+                    category = category,
+                    modifier = Modifier
+                        .size(120.dp) // Bigger circle
+                        .clickable { onCategorySelected(category) },
+                    primaryBlue = primaryBlue,
+                    cardBackground = cardBackground,
+                    textDark = textDark,
+                    outlineColor = outlineColor,
+                    iconSize = 64.dp, // Bigger icon
+                    textSize = 16.sp
+                )
             }
         }
+        Spacer(Modifier.height(8.dp))
     }
 }
 
 @Composable
-fun DoctorItem(
+fun DoctorCategoryCard(
     category: DoctorCategory,
     modifier: Modifier = Modifier,
     cardBackground: Color,
     textDark: Color,
-    textLight: Color,
     outlineColor: Color,
-    primaryBlue: Color
+    primaryBlue: Color,
+    iconSize: Dp = 64.dp,
+    textSize: TextUnit = 18.sp
 ) {
-    var expanded by remember { mutableStateOf(false) }
-
     Card(
         modifier = modifier
-            .aspectRatio(1f)
-            .animateContentSize(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                )
-            ),
+            .clip(CircleShape)
+            .background(cardBackground)
+            .animateContentSize(spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow)),
         shape = CircleShape,
         colors = CardDefaults.cardColors(containerColor = cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        border = BorderStroke(1.dp, outlineColor)
+        elevation = CardDefaults.cardElevation(8.dp),
+        border = BorderStroke(2.dp, outlineColor)
     ) {
         Column(
-            modifier = Modifier
+            Modifier
                 .fillMaxSize()
-                .padding(vertical = 12.dp, horizontal = 8.dp)
-                .clip(CircleShape),
+                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Image(
                 painter = painterResource(id = category.iconRes),
                 contentDescription = category.title,
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.size(iconSize),
                 contentScale = ContentScale.Fit
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
-                text = category.title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
+                category.title,
+                fontSize = textSize,
+                fontWeight = FontWeight.Bold,
                 color = textDark,
                 textAlign = TextAlign.Center
             )
-
-            AnimatedVisibility(visible = expanded) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = category.description,
-                        fontSize = 12.sp,
-                        color = textLight,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp)) // Small spacer before the icon button
-            IconButton(onClick = { expanded = !expanded }) {
-                Icon(
-                    imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
-                    tint = primaryBlue // Use your primary color for the icon
-                )
-            }
         }
     }
 }
@@ -471,7 +449,5 @@ fun DoctorItem(
 @Preview(showBackground = true, widthDp = 360, heightDp = 640)
 @Composable
 fun PreviewDoctorBooking() {
-    DaktarSaabTheme {
-        DoctorBookingContainer()
-    }
+    DaktarSaabTheme { DoctorBookingContainer() }
 }
