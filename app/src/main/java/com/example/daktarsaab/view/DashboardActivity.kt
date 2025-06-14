@@ -448,7 +448,7 @@ fun UtilitiesContent(showUtilitiesContent: Boolean) {
                     modifier = Modifier.padding(bottom = 8.dp) // Increased bottom padding
                 )
                 Text(
-                    text = "Dive into our practical tools designed to support your well-being, from timely **reminders** to immediate **emergency support** and smart **symptom analysis**.",
+                    text = "Dive into our practical tools designed to support your well-being, from timely reminders to immediate emergency support and smart symptom analysis",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 24.sp,
