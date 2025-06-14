@@ -824,53 +824,64 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                     .fillMaxWidth()
                     .clip(if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp))
             ) {
-                AndroidView(
-                    factory = { context ->
-                        MapView(context).apply {
-                            mapViewRef = this
-                            setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
-                            setMultiTouchControls(true)
-                            controller.setZoom(15.0)
-                            if (currentLocation != null) {
+                if (currentLocation != null) {
+                    AndroidView(
+                        factory = { context ->
+                            MapView(context).apply {
+                                mapViewRef = this
+                                setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
+                                setMultiTouchControls(true)
+                                controller.setZoom(normalZoomLevel)
                                 controller.setCenter(currentLocation)
                             }
-                        }
-                    },
-                    update = { mapView ->
-                        mapViewRef = mapView
-                        mapView.overlays.clear()
+                        },
+                        update = { mapView ->
+                            mapViewRef = mapView
+                            mapView.overlays.clear()
 
-                        // Add current location marker
-                        currentLocation?.let {
-                            val currentLocationMarker = Marker(mapView).apply {
-                                position = it
-                                title = "Your Location"
-                                // Use the standard My Location icon and tint it
-                                icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)?.apply {
-                                    setTint(ContextCompat.getColor(context, android.R.color.holo_blue_light))
+                            // Add current location marker
+                            currentLocation?.let {
+                                val currentLocationMarker = Marker(mapView).apply {
+                                    position = it
+                                    title = "Your Location"
+                                    // Use the standard My Location icon and tint it
+                                    icon = ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_accessibility_24)?.apply {
+                                        setTint(ContextCompat.getColor(context, android.R.color.black))
+                                    }
+                                    // Anchor bottom center so the icon tip points to the location
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                    setOnMarkerClickListener { marker, _ ->
+                                        selectedLocationName = "Your Current Location"
+                                        true
+                                    }
                                 }
-                                // Anchor bottom center so the icon tip points to the location
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                setOnMarkerClickListener { marker, _ ->
-                                    selectedLocationName = "Your Current Location"
-                                    true
-                                }
+                                mapView.overlays.add(currentLocationMarker)
+                                // Center and zoom map on current location
+                                mapView.controller.setCenter(it)
+                                mapView.controller.setZoom(normalZoomLevel)
                             }
-                            mapView.overlays.add(currentLocationMarker)
+
+                            // Add place markers
+                            placeMarkers.forEach { mapView.overlays.add(it) }
+
+                            // Add route polyline if it exists
+                            routePolyline?.let { mapView.overlays.add(it) }
+                            // Add start and end markers for the route if they exist
+                            startMarkerState?.let { mapView.overlays.add(it) }
+                            endMarkerState?.let { mapView.overlays.add(it) }
+
+                            mapView.invalidate()
                         }
-
-                        // Add place markers
-                        placeMarkers.forEach { mapView.overlays.add(it) }
-
-                        // Add route polyline if it exists
-                        routePolyline?.let { mapView.overlays.add(it) }
-                        // Add start and end markers for the route if they exist
-                        startMarkerState?.let { mapView.overlays.add(it) }
-                        endMarkerState?.let { mapView.overlays.add(it) }
-
-                        mapView.invalidate()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
                     }
-                )
+                }
 
                 Box(
                     modifier = Modifier
@@ -1089,3 +1100,4 @@ private fun CategoryButton(
         }
     }
 }
+

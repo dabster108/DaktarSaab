@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -29,7 +33,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
+
+// Define custom colors
+val customPrimaryBlue = Color(0xFF007AFF)
+val customAccentTurquoise = Color(0xFF5AC8FA)
+val lightBlueBackground = Color(0xFFE0F2FF) // A light blue for backgrounds/containers
 
 class SymptomAnalayzes : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,22 +76,20 @@ fun EnhancedSymptomAnalyzer() {
     var responseText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Animation states
-    val density = LocalDensity.current
     val animatedProgress = remember { Animatable(0f) }
 
-    // Common body parts with icons
+    // Updated body part options with more specific icons
     val bodyPartOptions = listOf(
-        "Head" to Icons.Outlined.Face,
-        "Stomach" to Icons.Outlined.Fastfood,
-        "Chest" to Icons.Outlined.Favorite,
-        "Back" to Icons.Outlined.Person,
-        "Leg" to Icons.Outlined.DirectionsWalk,
-        "Arm" to Icons.Outlined.PanTool,
-        "Throat" to Icons.Outlined.RecordVoiceOver,
-        "Eye" to Icons.Outlined.Visibility,
-        "Ear" to Icons.Outlined.Hearing,
-        "Tooth" to Icons.Outlined.EmojiEmotions
+        "Head" to Icons.Outlined.Face, // Kept
+        "Stomach" to Icons.Outlined.MedicalServices, // Changed
+        "Chest" to Icons.Filled.MonitorHeart, // Changed
+        "Back" to Icons.Outlined.PersonOutline, // Changed
+        "Leg" to Icons.AutoMirrored.Outlined.DirectionsWalk, // Kept
+        "Arm" to Icons.Outlined.WavingHand, // Changed
+        "Throat" to Icons.Outlined.Campaign, // Changed
+        "Eye" to Icons.Outlined.Visibility, // Kept
+        "Ear" to Icons.Outlined.Hearing, // Kept
+        "Tooth" to Icons.Outlined.SentimentVeryDissatisfied // Changed
     )
 
     val mcqQuestions = listOf(
@@ -99,135 +105,177 @@ fun EnhancedSymptomAnalyzer() {
         )
     }
 
+    // Entry animation state
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
+    // Removed the outer AnimatedVisibility that previously wrapped the Scaffold
     Scaffold(
         topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Text(
-                            when (currentStep) {
-                                1 -> "Select Body Part"
-                                2 -> "Choose Input Method"
-                                3 -> "Describe Symptoms"
-                                4 -> "Answer Questions"
-                                5, 6 -> "Analysis Results"
-                                else -> "Symptom Analyzer"
-                            },
-                            fontWeight = FontWeight.Bold
-                        )
-                    },
-                    navigationIcon = {
-                        if (currentStep > 1) {
-                            IconButton(onClick = {
-                                currentStep = when (currentStep) {
-                                    3, 4 -> 2
-                                    5 -> 3
-                                    6 -> 4
-                                    else -> currentStep - 1
+            // Wrap TopAppBar and ProgressIndicator in an AnimatedVisibility for entry animation
+            AnimatedVisibility(
+                visible = visible,
+                enter = slideInVertically(
+                    animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)
+                ) { fullHeight -> -fullHeight } // Slide from top
+                        + fadeIn(animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)),
+                exit = slideOutVertically(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutLinearInEasing)
+                ) { fullHeight -> -fullHeight } // Slide out to top
+                        + fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutLinearInEasing))
+            ) {
+                Column {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                when (currentStep) {
+                                    1 -> "Select Body Part"
+                                    2 -> "Choose Input Method"
+                                    3 -> "Describe Symptoms"
+                                    4 -> "Answer Questions"
+                                    5, 6 -> "Analysis Results"
+                                    else -> "Symptom Analyzer"
+                                },
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White // Changed for new AppBar color
+                            )
+                        },
+                        navigationIcon = {
+                            if (currentStep > 1) {
+                                IconButton(onClick = {
+                                    currentStep = when (currentStep) {
+                                        3, 4 -> 2
+                                        5 -> 3
+                                        6 -> 4
+                                        else -> currentStep - 1
+                                    }
+                                }) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = Color.White // Changed for new AppBar color
+                                    )
                                 }
-                            }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                             }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = customPrimaryBlue, // Changed AppBar color
+                            titleContentColor = Color.White // Changed
+                        )
                     )
-                )
 
-                // Progress indicator
-                LinearProgressIndicator(
-                    progress = { animatedProgress.value },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                    // Progress indicator
+                    LinearProgressIndicator(
+                        progress = { animatedProgress.value },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = customAccentTurquoise, // Changed progress color
+                        trackColor = customPrimaryBlue.copy(alpha = 0.3f) // Changed track color
+                    )
+                }
             }
         }
-    ) { padding ->
-        AnimatedContent(
-            targetState = currentStep,
-            transitionSpec = {
-                val direction = if (targetState > initialState)
-                    AnimatedContentTransitionScope.SlideDirection.Left
-                else
-                    AnimatedContentTransitionScope.SlideDirection.Right
+    ) { paddingValues -> // Renamed padding to paddingValues for clarity
+        // Wrap the main content (AnimatedContent) in another AnimatedVisibility for entry animation
+        AnimatedVisibility(
+            visible = visible,
+            enter = slideInVertically(
+                animationSpec = tween(durationMillis = 500, delayMillis = 150, easing = LinearOutSlowInEasing) // Delayed entry
+            ) { fullHeight -> fullHeight / 10 } // Slide up gently from bottom
+                    + fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = 150, easing = LinearOutSlowInEasing)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutLinearInEasing)) // Simple fade out for content
+        ) {
+            AnimatedContent<Int>(
+                targetState = currentStep,
+                transitionSpec = {
+                    val direction = if (targetState > initialState)
+                        AnimatedContentTransitionScope.SlideDirection.Left
+                    else
+                        AnimatedContentTransitionScope.SlideDirection.Right
 
-                slideIntoContainer(direction) with
-                        slideOutOfContainer(direction)
-            },
-            label = "screen_transition"
-        ) { step ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp)
-            ) {
-                when (step) {
-                    1 -> {
-                        BodyPartSelectionScreen(
-                            bodyPart = bodyPart,
-                            onBodyPartChange = { bodyPart = it },
-                            bodyPartOptions = bodyPartOptions,
-                            onNext = { currentStep = 2 }
+                    slideIntoContainer(
+                        towards = direction,
+                        animationSpec = tween(durationMillis = 400, easing = LinearOutSlowInEasing)
+                    ).togetherWith(
+                        slideOutOfContainer(
+                            towards = direction,
+                            animationSpec = tween(durationMillis = 400, easing = FastOutLinearInEasing)
                         )
-                    }
-                    2 -> {
-                        InputMethodSelectionScreen(
-                            onManualSelected = { currentStep = 3 },
-                            onQuestionsSelected = { currentStep = 4 }
-                        )
-                    }
-                    3 -> {
-                        ManualDescriptionScreen(
-                            description = manualDescription,
-                            onDescriptionChange = { manualDescription = it },
-                            onAnalyze = { currentStep = 5 }
-                        )
-                    }
-                    4 -> {
-                        MCQQuestionsScreen(
-                            questions = mcqQuestions,
-                            answers = mcqAnswers,
-                            onAnswerSelected = { idx, answer ->
-                                mcqAnswers = mcqAnswers.toMutableList().apply { this[idx] = answer }
-                            },
-                            onNext = { currentStep = 6 }
-                        )
-                    }
-                    5 -> {
-                        AnalysisScreen(
-                            bodyPart = bodyPart,
-                            description = manualDescription,
-                            isLoading = isLoading,
-                            setLoading = { isLoading = it },
-                            responseText = responseText,
-                            setResponseText = { responseText = it },
-                            onBackToStart = {
-                                currentStep = 1
-                                bodyPart = ""
-                                manualDescription = ""
-                                responseText = ""
-                            }
-                        )
-                    }
-                    6 -> {
-                        AnalysisScreen(
-                            bodyPart = bodyPart,
-                            description = mcqQuestions.mapIndexed { idx, (q, _) -> "$q ${mcqAnswers[idx]}" }.joinToString("\n"),
-                            isLoading = isLoading,
-                            setLoading = { isLoading = it },
-                            responseText = responseText,
-                            setResponseText = { responseText = it },
-                            onBackToStart = {
-                                currentStep = 1
-                                bodyPart = ""
-                                mcqAnswers = listOf("", "", "")
-                                responseText = ""
-                            }
-                        )
+                    )
+                },
+                label = "screen_transition",
+                modifier = Modifier.padding(paddingValues)
+            ) { step ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    when (step) {
+                        1 -> {
+                            BodyPartSelectionScreen(
+                                bodyPart = bodyPart,
+                                onBodyPartChange = { bodyPart = it },
+                                bodyPartOptions = bodyPartOptions,
+                                onNext = { currentStep = 2 }
+                            )
+                        }
+                        2 -> {
+                            InputMethodSelectionScreen(
+                                onManualSelected = { currentStep = 3 },
+                                onQuestionsSelected = { currentStep = 4 }
+                            )
+                        }
+                        3 -> {
+                            ManualDescriptionScreen(
+                                description = manualDescription,
+                                onDescriptionChange = { manualDescription = it },
+                                onAnalyze = { currentStep = 5 }
+                            )
+                        }
+                        4 -> {
+                            MCQQuestionsScreen(
+                                questions = mcqQuestions,
+                                answers = mcqAnswers,
+                                onAnswerSelected = { idx, answer ->
+                                    mcqAnswers = mcqAnswers.toMutableList().apply { this[idx] = answer }
+                                },
+                                onNext = { currentStep = 6 }
+                            )
+                        }
+                        5 -> {
+                            AnalysisScreen(
+                                bodyPart = bodyPart,
+                                description = manualDescription,
+                                isLoading = isLoading,
+                                setLoading = { isLoading = it },
+                                responseText = responseText,
+                                setResponseText = { responseText = it },
+                                onBackToStart = {
+                                    currentStep = 1
+                                    bodyPart = ""
+                                    manualDescription = ""
+                                    responseText = ""
+                                }
+                            )
+                        }
+                        6 -> {
+                            AnalysisScreen(
+                                bodyPart = bodyPart,
+                                description = mcqQuestions.mapIndexed { idx, (q, _) -> "$q ${mcqAnswers[idx]}" }.joinToString("\n"),
+                                isLoading = isLoading,
+                                setLoading = { isLoading = it },
+                                responseText = responseText,
+                                setResponseText = { responseText = it },
+                                onBackToStart = {
+                                    currentStep = 1
+                                    bodyPart = ""
+                                    mcqAnswers = listOf("", "", "")
+                                    responseText = ""
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -320,8 +368,8 @@ fun BodyPartSelectionScreen(
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = customPrimaryBlue, // Changed button color
+                contentColor = Color.White // Changed button text color
             )
         ) {
             Text(
@@ -330,7 +378,7 @@ fun BodyPartSelectionScreen(
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.Default.ArrowForward, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) // Changed Icon
         }
     }
 }
@@ -343,16 +391,16 @@ fun BodyPartOption(
     onClick: () -> Unit
 ) {
     val backgroundColor = if (isSelected)
-        MaterialTheme.colorScheme.primaryContainer
+        customPrimaryBlue.copy(alpha = 0.25f) // Changed selected background
     else
         MaterialTheme.colorScheme.surfaceVariant
 
     val contentColor = if (isSelected)
-        MaterialTheme.colorScheme.onPrimaryContainer
+        customPrimaryBlue // Changed selected content color
     else
         MaterialTheme.colorScheme.onSurfaceVariant
 
-    val elevation = if (isSelected) 4.dp else 1.dp
+    val elevation = if (isSelected) 8.dp else 2.dp // Enhanced elevation for selected
 
     // Pulsating animation for selected item
     val infiniteTransition = rememberInfiniteTransition(label = "selection")
@@ -435,13 +483,13 @@ fun InputMethodSelectionScreen(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(lightBlueBackground), // Changed icon background
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.Edit,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = customPrimaryBlue, // Changed icon tint
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -485,13 +533,13 @@ fun InputMethodSelectionScreen(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(lightBlueBackground), // Changed icon background
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = customPrimaryBlue, // Changed icon tint
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -578,8 +626,8 @@ fun ManualDescriptionScreen(
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = customPrimaryBlue, // Changed button color
+                contentColor = Color.White // Changed button text color
             )
         ) {
             Text(
@@ -647,7 +695,7 @@ fun MCQQuestionsScreen(
                                 .padding(vertical = 8.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                    if (isSelected) lightBlueBackground // Changed selected radio background
                                     else MaterialTheme.colorScheme.surfaceVariant
                                 )
                                 .clickable { onAnswerSelected(idx, option) }
@@ -658,7 +706,7 @@ fun MCQQuestionsScreen(
                                 selected = isSelected,
                                 onClick = { onAnswerSelected(idx, option) },
                                 colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
+                                    selectedColor = customPrimaryBlue, // Changed radio selected color
                                     unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             )
@@ -666,7 +714,7 @@ fun MCQQuestionsScreen(
                                 option,
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                    customPrimaryBlue // Changed selected text color
                                 else
                                     MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(start = 8.dp)
@@ -687,8 +735,8 @@ fun MCQQuestionsScreen(
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = customPrimaryBlue, // Changed button color
+                contentColor = Color.White // Changed button text color
             )
         ) {
             Text(
@@ -748,8 +796,8 @@ fun AnalysisScreen(
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = customPrimaryBlue, // Changed button color
+                    contentColor = Color.White // Changed button text color
                 )
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
@@ -812,17 +860,17 @@ fun LoadingAnimation() {
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                            customPrimaryBlue, // Changed loading color
+                            customAccentTurquoise.copy(alpha = 0.8f) // Changed loading color
                         )
                     )
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                Icons.Default.Favorite,
+                Icons.Default.Favorite, // Or consider Icons.Outlined.HealthAndSafety for medical context
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
+                tint = Color.White, // Changed icon tint for better contrast on new background
                 modifier = Modifier
                     .size(64.dp)
                     .rotate(rotation)
@@ -865,7 +913,7 @@ fun EnhancedDiagnosisResult(response: String) {
             "Your Diagnosis Results",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
+            color = customPrimaryBlue, // Changed title color
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
@@ -875,18 +923,26 @@ fun EnhancedDiagnosisResult(response: String) {
         } else {
             sections.forEachIndexed { index, section ->
                 val sectionColor = when (index) {
-                    0 -> MaterialTheme.colorScheme.primaryContainer // Diagnosis
-                    1 -> MaterialTheme.colorScheme.errorContainer // Possible Diseases
-                    2 -> MaterialTheme.colorScheme.secondaryContainer // Treatment
-                    3 -> MaterialTheme.colorScheme.tertiaryContainer // Medicine
+                    0 -> lightBlueBackground // Diagnosis - Light Blue
+                    1 -> MaterialTheme.colorScheme.errorContainer // Possible Diseases - Keep error color
+                    2 -> customAccentTurquoise.copy(alpha = 0.2f) // Treatment - Light Turquoise
+                    3 -> Color(0xFFE6F7FF) // Medicine - Very Light Blue/Neutral
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 }
 
                 val sectionTextColor = when (index) {
-                    0 -> MaterialTheme.colorScheme.onPrimaryContainer
-                    1 -> MaterialTheme.colorScheme.onErrorContainer
-                    2 -> MaterialTheme.colorScheme.onSecondaryContainer
-                    3 -> MaterialTheme.colorScheme.onTertiaryContainer
+                    0 -> customPrimaryBlue // Diagnosis
+                    1 -> MaterialTheme.colorScheme.onErrorContainer // Possible Diseases
+                    2 -> customAccentTurquoise.copy(alpha = 1f).darken(0.2f) // Treatment - Darker Turquoise for text
+                    3 -> customPrimaryBlue.darken(0.1f) // Medicine
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
+                val sectionIconColor = when (index) {
+                    0 -> customPrimaryBlue
+                    1 -> MaterialTheme.colorScheme.error
+                    2 -> customAccentTurquoise.darken(0.2f)
+                    3 -> customPrimaryBlue.darken(0.1f)
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 }
 
@@ -902,11 +958,20 @@ fun EnhancedDiagnosisResult(response: String) {
                     section = section,
                     sectionColor = sectionColor,
                     sectionTextColor = sectionTextColor,
-                    sectionIcon = sectionIcon
+                    sectionIcon = sectionIcon,
+                    sectionIconColor = sectionIconColor // Pass icon color
                 )
             }
         }
     }
+}
+
+// Helper to darken a color (approximation)
+fun Color.darken(factor: Float = 0.1f): Color {
+    val r = (red * (1 - factor)).coerceIn(0f, 1f)
+    val g = (green * (1 - factor)).coerceIn(0f, 1f)
+    val b = (blue * (1 - factor)).coerceIn(0f, 1f)
+    return Color(r, g, b, alpha)
 }
 
 @Composable
@@ -914,7 +979,8 @@ fun DiagnosisSection(
     section: String,
     sectionColor: Color,
     sectionTextColor: Color,
-    sectionIcon: ImageVector
+    sectionIcon: ImageVector,
+    sectionIconColor: Color // Added icon color parameter
 ) {
     val lines = section.lines()
     if (lines.isEmpty()) return
@@ -944,7 +1010,7 @@ fun DiagnosisSection(
                 Icon(
                     sectionIcon,
                     contentDescription = null,
-                    tint = sectionTextColor,
+                    tint = sectionIconColor, // Use specific icon color
                     modifier = Modifier.size(24.dp)
                 )
 
@@ -958,7 +1024,7 @@ fun DiagnosisSection(
                 )
             }
 
-            Divider(
+            HorizontalDivider(
                 color = sectionTextColor.copy(alpha = 0.2f),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -999,27 +1065,22 @@ fun DiagnosisSection(
 @Composable
 fun ErrorResultCard(errorResponse: String) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 12.dp)
             ) {
                 Icon(
-                    Icons.Default.Error,
+                    imageVector = Icons.Outlined.ReportProblem,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(24.dp)
                 )
 
@@ -1029,19 +1090,19 @@ fun ErrorResultCard(errorResponse: String) {
                     "Error Processing Results",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.error
                 )
             }
 
-            Divider(
-                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.2f),
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
             Text(
                 "Could not generate a proper diagnosis. Please try again with more details, or check your internet connection.",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onErrorContainer,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 22.sp
             )
 
@@ -1050,7 +1111,7 @@ fun ErrorResultCard(errorResponse: String) {
                 Text(
                     "Details: ${errorResponse.take(200)}...",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
         }
@@ -1098,7 +1159,7 @@ fun getDiagnosisFromAPI(symptomDetails: String): String {
             "API Error: $responseCode - $errorResponse"
         }
 
-        val textPattern = "\"text\":\\s*\"((?:\\\\.|[^\\\"])*?)\"".toRegex()
+        val textPattern = "\"text\":\\s*\"((?:\\\\.|[^\"])*?)\"".toRegex() // Corrected regex string
         val matchResult = textPattern.find(response)
 
         if (matchResult != null) {
