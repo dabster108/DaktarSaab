@@ -37,10 +37,10 @@ class LoginViewModel : ViewModel() {
 
         _loginState.value = LoginState.Loading
 
-        // MODIFIED APPROACH: Always check database first, then only use Firebase Auth if needed
+        // SIMPLIFIED APPROACH: ONLY check database, skip Firebase Auth completely
         viewModelScope.launch {
             try {
-                // First check if this user exists in our database by email
+                // Check if this user exists in our database by email
                 val user = userRepository.getUserByEmail(email)
 
                 if (user != null) {
@@ -50,119 +50,35 @@ class LoginViewModel : ViewModel() {
                         _loginState.value = LoginState.Success(user)
                         Log.d(TAG, "Login successful using database credentials")
 
-                        // Optionally try to sign in to Firebase Auth in the background
-                        // to keep sessions in sync, but don't block the login process
+                        // Try to silently sign in to Firebase Auth in the background for
+                        // features that might need Firebase Auth, but we don't care if it fails
                         try {
                             auth.signInWithEmailAndPassword(email, password)
                                 .addOnSuccessListener {
                                     Log.d(TAG, "Firebase Auth sign-in successful after database auth")
                                 }
-                                .addOnFailureListener { e ->
-                                    Log.d(TAG, "Firebase Auth sign-in failed after database auth: ${e.message}")
-                                    // We don't care if this fails since we're using DB auth
+                                .addOnFailureListener {
+                                    // Ignore failures - we're using DB auth only
                                 }
                         } catch (e: Exception) {
-                            // Ignore Firebase Auth errors
-                            Log.d(TAG, "Ignoring Firebase Auth error: ${e.message}")
+                            // Ignore completely - we don't care about Firebase Auth
                         }
                     } else {
-                        // Password doesn't match database - try Firebase Auth as fallback
-                        // This helps users who might have reset password through other means
-                        authenticateWithFirebaseAuth(email, password)
+                        // Password doesn't match the one in database
+                        _loginState.value = LoginState.Error("Incorrect password")
+                        Log.d(TAG, "Login failed: incorrect password")
                     }
                 } else {
-                    // User not found in database - try Firebase Auth as fallback
-                    authenticateWithFirebaseAuth(email, password)
+                    // User not found in database
+                    _loginState.value = LoginState.Error("User not registered. Please sign up")
+                    Log.d(TAG, "Login failed: user not found in database")
                 }
             } catch (e: Exception) {
-                // Error with database lookup - try Firebase Auth as fallback
-                Log.e(TAG, "Error looking up user in database: ${e.message}")
-                authenticateWithFirebaseAuth(email, password)
+                // Error with database lookup
+                _loginState.value = LoginState.Error("Login failed: ${e.message}")
+                Log.e(TAG, "Error during database authentication", e)
             }
         }
-    }
-
-    // Helper function to sync Firebase Auth with the database password
-    private fun syncWithFirebaseAuth(email: String, password: String, user: UserModel) {
-        // First try normal sign-in
-        auth.signInWithEmailAndPassword(email, password)
-            .addOnSuccessListener {
-                // Perfect! Both DB and Auth are in sync
-                _loginState.value = LoginState.Success(user)
-                Log.d(TAG, "Login successful for user with matching DB and Auth passwords")
-            }
-            .addOnFailureListener { exception ->
-                // If auth fails but DB password matches, we need to update Firebase Auth
-                // Two approaches: either create a new account or update existing account
-
-                // Try to create a new auth account with the email/password
-                auth.createUserWithEmailAndPassword(email, password)
-                    .addOnSuccessListener {
-                        _loginState.value = LoginState.Success(user)
-                        Log.d(TAG, "Created new Firebase Auth account to match DB credentials")
-                    }
-                    .addOnFailureListener { createException ->
-                        // If we can't create a new account, the account probably exists
-                        // but with a different password. In this case, let the user know
-                        // they need to use the custom password reset again
-                        _loginState.value = LoginState.Error(
-                            "Your database password was reset but Firebase Auth is out of sync. " +
-                            "Please use 'Forgot Password' once more to fully reset your account."
-                        )
-                        Log.e(TAG, "Auth and DB passwords are out of sync", createException)
-                    }
-            }
-    }
-
-    // Original Firebase Auth authentication method
-    private fun authenticateWithFirebaseAuth(email: String, password: String) {
-        auth.signInWithEmailAndPassword(email, password)
-            .addOnSuccessListener { authResult ->
-                // Get current user ID
-                val userId = auth.currentUser?.uid
-
-                if (userId != null) {
-                    // Check if user exists in database
-                    viewModelScope.launch {
-                        try {
-                            val user = userRepository.getUserById(userId)
-
-                            if (user != null) {
-                                // User exists in database - LOGIN SUCCESSFUL
-                                _loginState.value = LoginState.Success(user)
-                                Log.d(TAG, "Login successful for user: $userId")
-                            } else {
-                                // User authenticated but not found in database
-                                _loginState.value = LoginState.Error("User not registered. Please sign up")
-                                // Sign out the user from Firebase Auth since they don't exist in the database
-                                auth.signOut()
-                                Log.e(TAG, "User authenticated but not found in database: $userId")
-                            }
-                        } catch (e: Exception) {
-                            _loginState.value = LoginState.Error("Failed to retrieve user data")
-                            Log.e(TAG, "Error retrieving user data", e)
-                        }
-                    }
-                } else {
-                    _loginState.value = LoginState.Error("Authentication failed")
-                    Log.e(TAG, "User ID is null after successful authentication")
-                }
-            }
-            .addOnFailureListener { exception ->
-                // Determine specific error message based on the exception
-                val errorMessage = when {
-                    exception.message?.contains("no user record", ignoreCase = true) == true ->
-                        "User not registered. Please sign up"
-                    exception.message?.contains("password is invalid", ignoreCase = true) == true ->
-                        "Password incorrect"
-                    exception.message?.contains("blocked", ignoreCase = true) == true ->
-                        "Too many failed attempts. Try again later."
-                    else -> "Login failed: ${exception.message}"
-                }
-
-                _loginState.value = LoginState.Error(errorMessage)
-                Log.e(TAG, "Login failed", exception)
-            }
     }
 
     // Function to handle Google Sign-In
