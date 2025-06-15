@@ -14,11 +14,6 @@
     <string name="title_activity_symptom">SymptomActivity</string>
     <string name="title_activity_symptom_analayzes">SymptomAnalayzes</string>
     <string name="title_activity_xray_analysis">XrayAnalysisActivity</string>
-<<<<<<< HEAD
     <string name="title_activity_doctor_booking">DoctorBooking</string>
+    <string name="title_activity_doctor_book">Doctor Book</string>
 </resources>
-
-=======
-    <string name="title_activity_doctor_book">DoctorBookActivity</string>
-</resources>
->>>>>>> 20a123741e00a284c15467acfc8c1f83aec4ec4c

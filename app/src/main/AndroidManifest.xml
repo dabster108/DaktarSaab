@@ -50,20 +50,6 @@
         android:usesCleartextTraffic="true"
         tools:replace="android:allowBackup"
         tools:targetApi="31">
-<<<<<<< HEAD
-        <activity
-            android:name=".DoctorBooking"
-            android:exported="true"
-            android:label="@string/title_activity_doctor_booking"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-=======
->>>>>>> 20a123741e00a284c15467acfc8c1f83aec4ec4c
         <activity
             android:name=".view.DoctorBookActivity"
             android:exported="true"

@@ -34,6 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
+import com.example.daktarsaab.view.MapsActivity
+import com.example.daktarsaab.view.SymptomAnalayzes
+import com.example.daktarsaab.view.XrayAnalysisActivity
 import com.google.accompanist.pager.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -52,8 +55,14 @@ class DashboardActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge() // Enables edge-to-edge display for a modern look
         setContent {
-            DaktarSaabTheme { // Apply your app's theme
-                DashboardScreen() // Display the main dashboard UI
+            DaktarSaabTheme {
+                // A surface container using the 'background' color from the theme
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    DashboardScreen() // Display the main dashboard UI
+                }
             }
         }
     }
@@ -410,4 +419,3 @@ fun preDash(){
         DashboardScreen() // Display the main dashboard UI
     }
 }
-
