@@ -2,6 +2,7 @@ package com.example.daktarsaab.view
 import android.content.Intent
 import android.os.Bundle
 import android.util.Patterns
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
@@ -18,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,14 +36,26 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
+import com.example.daktarsaab.viewmodel.LoginState
+import com.example.daktarsaab.viewmodel.LoginViewModel
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 
 class LoginActivity : ComponentActivity() {
+    private lateinit var viewModel: LoginViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize the LoginViewModel
+        viewModel = ViewModelProvider(this)[LoginViewModel::class.java]
+
+        // Sign out any existing user to ensure login screen always shows
+        FirebaseAuth.getInstance().signOut()
 
         val sharedPreferences = getSharedPreferences("app_prefs", MODE_PRIVATE)
         val isSplashShown = false // Ensures splash shows on every fresh activity creation
@@ -71,6 +85,25 @@ class LoginActivity : ComponentActivity() {
                         SplashScreen()
                     } else {
                         val context = LocalContext.current
+
+                        // Observe login state to handle navigation
+                        val loginState by viewModel.loginState.observeAsState()
+
+                        LaunchedEffect(loginState) {
+                            when (loginState) {
+                                is LoginState.Success -> {
+                                    Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
+                                    // Navigate to Dashboard
+                                    val intent = Intent(context, DashboardActivity::class.java)
+                                    context.startActivity(intent)
+                                    finish() // Close LoginActivity
+                                }
+                                else -> {
+                                    // Do nothing for other states, they'll be handled in the LoginScreen
+                                }
+                            }
+                        }
+
                         LoginScreen(
                             onForgotPasswordClick = {
                                 val intent = Intent(context, ForgotPasswordActivity::class.java)
@@ -81,7 +114,8 @@ class LoginActivity : ComponentActivity() {
                                 context.startActivity(intent)
                             },
                             darkMode = darkMode,
-                            onToggleDarkMode = { darkMode = !darkMode }
+                            onToggleDarkMode = { darkMode = !darkMode },
+                            viewModel = viewModel
                         )
                     }
                 }
@@ -212,7 +246,8 @@ fun LoginScreen(
     onForgotPasswordClick: () -> Unit,
     onSignupClick: () -> Unit,
     darkMode: Boolean = isSystemInDarkTheme(),
-    onToggleDarkMode: () -> Unit = {}
+    onToggleDarkMode: () -> Unit = {},
+    viewModel: LoginViewModel? = null
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -221,6 +256,42 @@ fun LoginScreen(
     var isCheckingEmail by remember { mutableStateOf(false) }
     var isPasswordLocked by remember { mutableStateOf(false) }
     var lastPasswordEdit by remember { mutableStateOf(0L) }
+
+    // State to track login status
+    var isLoggingIn by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Remove the showErrorDialog state since we're showing inline errors now
+
+    // Observe login state
+    if (viewModel != null) {
+        val loginState by viewModel.loginState.observeAsState()
+
+        LaunchedEffect(loginState) {
+            when (loginState) {
+                is LoginState.Loading -> {
+                    isLoggingIn = true
+                    errorMessage = null
+                }
+                is LoginState.Success -> {
+                    isLoggingIn = false
+                    errorMessage = null
+                    // Navigation is handled in the Activity
+                }
+                is LoginState.Error -> {
+                    isLoggingIn = false
+                    errorMessage = (loginState as LoginState.Error).message
+                }
+                else -> {
+                    // Initial state
+                    isLoggingIn = false
+                    errorMessage = null
+                }
+            }
+        }
+    }
+
+    // Remove the error dialog since we're showing inline errors now
 
     val animatedFullText = "Welcome back! Please enter your details."
     val defaultText = "Welcome to Daktar Sab App"
@@ -344,10 +415,17 @@ fun LoginScreen(
                 Column {
                     OutlinedTextField(
                         value = email,
-                        onValueChange = { email = it },
+                        onValueChange = {
+                            email = it
+                            // Clear error message when user types
+                            if (errorMessage?.contains("not registered", ignoreCase = true) == true) {
+                                errorMessage = null
+                            }
+                        },
                         label = { Text("Email") },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        isError = errorMessage?.contains("not registered", ignoreCase = true) == true,
                         leadingIcon = {
                             Icon(
                                 painter = painterResource(id = R.drawable.baseline_email_24),
@@ -381,18 +459,35 @@ fun LoginScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            errorBorderColor = MaterialTheme.colorScheme.error,
+                            errorLabelColor = MaterialTheme.colorScheme.error
+                        ),
+                        supportingText = {
+                            if (errorMessage?.contains("not registered", ignoreCase = true) == true) {
+                                Text(
+                                    text = errorMessage ?: "",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedTextField(
                         value = password,
-                        onValueChange = { password = it },
+                        onValueChange = {
+                            password = it
+                            // Clear error message when user types
+                            if (errorMessage?.contains("Password incorrect", ignoreCase = true) == true) {
+                                errorMessage = null
+                            }
+                        },
                         label = { Text("Password") },
                         modifier = Modifier.fillMaxWidth(),
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        isError = errorMessage?.contains("Password incorrect", ignoreCase = true) == true,
                         trailingIcon = {
                             Icon(
                                 painter = painterResource(
@@ -433,9 +528,33 @@ fun LoginScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            errorBorderColor = MaterialTheme.colorScheme.error,
+                            errorLabelColor = MaterialTheme.colorScheme.error
+                        ),
+                        supportingText = {
+                            if (errorMessage?.contains("Password incorrect", ignoreCase = true) == true) {
+                                Text(
+                                    text = errorMessage ?: "",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                     )
+
+                    // If there's an error message that's not about password or unregistered user,
+                    // show it as a general error message
+                    if (errorMessage != null &&
+                        !errorMessage!!.contains("Password incorrect", ignoreCase = true) &&
+                        !errorMessage!!.contains("not registered", ignoreCase = true)) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = errorMessage!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -478,19 +597,52 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
+                    // Sign up button that appears when user is not registered
+                    AnimatedVisibility(
+                        visible = errorMessage?.contains("not registered", ignoreCase = true) == true,
+                        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 })
+                    ) {
+                        Button(
+                            onClick = onSignupClick,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Text("Sign Up Now", fontSize = 16.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
                     Button(
-                        onClick = { /* TODO: Implement login logic */ },
+                        onClick = {
+                            if (viewModel != null) {
+                                viewModel.loginUser(email, password)
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
-                        enabled = email.isNotBlank() && password.isNotBlank() && !isCheckingEmail && isEmailValid,
+                        enabled = !isLoggingIn && email.isNotBlank() && password.isNotBlank() && !isCheckingEmail && isEmailValid,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                             disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                         )
                     ) {
-                        Text("Log In", fontSize = 16.sp)
+                        if (isLoggingIn) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Log In", fontSize = 16.sp)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
