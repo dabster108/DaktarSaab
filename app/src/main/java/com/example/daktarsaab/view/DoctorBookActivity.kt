@@ -25,7 +25,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow // Added for Popular Specialties (if you implement it later)
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons // For search icon (if you add search)
+import androidx.compose.material.icons.filled.Search // For search icon (if you add search)
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,8 +54,11 @@ class DoctorBookActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Read dark mode preference from SharedPreferences
+        val prefs = getSharedPreferences("daktar_prefs", MODE_PRIVATE)
+        val isDarkTheme = prefs.getBoolean("dark_mode", false)
         setContent {
-            DaktarSaabTheme {
+            DaktarSaabTheme(darkTheme = isDarkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -339,7 +345,7 @@ fun DoctorBookingGridScreen(
             DoctorCategory("Skin", R.drawable.skin, "Deals with diseases of the skin, hair, and nails."),
             DoctorCategory("Lungs", R.drawable.lungs, "Specializes in diseases of the respiratory tract."),
             DoctorCategory("Heart", R.drawable.heart, "Focuses on disorders of the heart and blood vessels."),
-            DoctorCategory("Ortho", R.drawable.bone, "Specializes in conditions affecting the musculoskeletal system.")
+            DoctorCategory("Bones", R.drawable.bone, "Specializes in conditions affecting the musculoskeletal system.")
         )
     }
 
@@ -373,30 +379,100 @@ fun DoctorBookingGridScreen(
             textAlign = TextAlign.Center
         )
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
+        // --- NEW: Search Bar (Optional, uncomment if you want to add this) ---
+        /*
+        OutlinedTextField(
+            value = "", // Your state for search query
+            onValueChange = {},
+            label = { Text("Search specialties or doctors") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        Spacer(Modifier.height(8.dp))
+        */
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2), // 2 columns for left and right
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f), // Ensures it takes available space
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp) // Less space between columns
         ) {
             items(categories) { category ->
                 DoctorCategoryCard(
                     category = category,
                     modifier = Modifier
-                        .size(120.dp) // Bigger circle
+                        .height(160.dp) // Increased box height
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
                         .clickable { onCategorySelected(category) },
                     primaryBlue = primaryBlue,
                     cardBackground = cardBackground,
                     textDark = textDark,
                     outlineColor = outlineColor,
-                    iconSize = 64.dp, // Bigger icon
-                    textSize = 16.sp
+                    iconSize = 72.dp, // Slightly larger icon
+                    textSize = 18.sp
                 )
             }
         }
         Spacer(Modifier.height(8.dp))
+
+        // --- NEW: Educational Content Snippet / Tip Card ---
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = cardBackground),
+            elevation = CardDefaults.cardElevation(4.dp),
+            border = BorderStroke(1.dp, outlineColor)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Health Tip:",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = primaryBlue,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Text(
+                    text = "Did you know regular check-ups can prevent many health issues? Don't wait for symptoms; book a general consultation today!",
+                    fontSize = 14.sp,
+                    color = textDark,
+                    lineHeight = 20.sp
+                )
+                // You can add a button here to link to more tips or a general health article
+                /*
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { /* Navigate to a page with more health tips */ }) {
+                    Text("Learn More")
+                }
+                */
+            }
+        }
+
+        // --- NEW: Help/Support Button (Optional, as discussed before) ---
+        /*
+        Button(
+            onClick = { // Handle help/support navigation
+                println("Help button clicked!")
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp)
+                .height(48.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = primaryBlue.copy(alpha = 0.1f)),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, primaryBlue)
+        ) {
+            Text("Need Help Booking?", fontSize = 16.sp, color = primaryBlue, fontWeight = FontWeight.SemiBold)
+        }
+        */
     }
 }
 
@@ -407,7 +483,7 @@ fun DoctorCategoryCard(
     cardBackground: Color,
     textDark: Color,
     outlineColor: Color,
-    primaryBlue: Color,
+    primaryBlue: Color, // Not directly used in card, but kept for consistency if needed later
     iconSize: Dp = 64.dp,
     textSize: TextUnit = 18.sp
 ) {

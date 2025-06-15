@@ -69,20 +69,30 @@ class DashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge() // Enables edge-to-edge display for a modern look
+        // Read dark mode preference from SharedPreferences
+        val prefs = getSharedPreferences("daktar_prefs", MODE_PRIVATE)
         setContent {
-            DaktarSaabTheme(content = { // Apply your app's theme
-                DashboardScreen() // Display the main dashboard UI
-            }, colorScheme = colorScheme)
+            // Hoist dark mode state to Compose and sync with SharedPreferences
+            var isDarkTheme by remember { mutableStateOf(prefs.getBoolean("dark_mode", false)) }
+            DaktarSaabTheme(darkTheme = isDarkTheme) {
+                DashboardScreen(
+                    isDarkTheme = isDarkTheme,
+                    onThemeToggle = { dark ->
+                        isDarkTheme = dark
+                        prefs.edit().putBoolean("dark_mode", dark).apply()
+                    }
+                )
+            }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPagerApi::class)
 @Composable
-fun DashboardScreen() {
-    // State for theme
-    var isDarkTheme by rememberSaveable { mutableStateOf(false) }
-
+fun DashboardScreen(
+    onThemeToggle: (Boolean) -> Unit, // Callback to toggle theme
+    isDarkTheme: Boolean // Current theme state
+) {
     // States to control animated visibility for Home content
     var showServiceGrid by remember { mutableStateOf(false) }
     var showMedicalArticles by remember { mutableStateOf(false) }
@@ -165,7 +175,7 @@ fun DashboardScreen() {
                     },
                     actions = {
                         // Theme Toggle Button
-                        IconButton(onClick = { isDarkTheme = !isDarkTheme }) {
+                        IconButton(onClick = { onThemeToggle(!isDarkTheme) }) {
                             Icon(
                                 painter = painterResource(
                                     id = if (isDarkTheme)
@@ -603,7 +613,7 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
                         context.startActivity(Intent(context, MapsActivity::class.java))
                     }
                     "Doctor Booking" -> {
-                        // context.startActivity(Intent(context, DoctorBookingActivity::class.java))
+                        context.startActivity(Intent(context, DoctorBookActivity::class.java))
                     }
                 }
             },
