@@ -102,6 +102,9 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.lottie.compose)
 
+    // Google Sign-In dependency
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
+
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.okhttp)

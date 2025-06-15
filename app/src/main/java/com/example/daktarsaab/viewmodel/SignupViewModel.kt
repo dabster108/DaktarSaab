@@ -42,6 +42,9 @@ class SignupViewModel : ViewModel() {
                             // Get the Firebase user ID
                             val userId = auth.currentUser?.uid ?: ""
 
+                            // Send email verification
+                            sendEmailVerification()
+
                             // Create user model with proper field mapping
                             val user = UserModel(
                                 userId = userId,
@@ -57,7 +60,7 @@ class SignupViewModel : ViewModel() {
                             viewModelScope.launch {
                                 val result = userRepository.createUser(user)
                                 if (result) {
-                                    _signupState.value = SignupState.Success(user)
+                                    _signupState.value = SignupState.VerificationSent(user)
                                     Log.d(TAG, "User created successfully: $userId")
                                 } else {
                                     _signupState.value = SignupState.Error("Failed to save user data")
@@ -77,6 +80,40 @@ class SignupViewModel : ViewModel() {
             }
         }
     }
+
+    // Function to send email verification
+    private fun sendEmailVerification() {
+        val user = auth.currentUser
+        user?.sendEmailVerification()
+            ?.addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Log.d(TAG, "Verification email sent to ${user.email}")
+                } else {
+                    Log.e(TAG, "Failed to send verification email", task.exception)
+                }
+            }
+    }
+
+    // Function to check if email is verified
+    fun checkEmailVerification() {
+        _signupState.value = SignupState.CheckingVerification
+
+        auth.currentUser?.reload()?.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val user = auth.currentUser
+                if (user != null && user.isEmailVerified) {
+                    _signupState.value = SignupState.VerificationComplete
+                    Log.d(TAG, "Email verified successfully")
+                } else {
+                    _signupState.value = SignupState.VerificationPending
+                    Log.d(TAG, "Email not yet verified")
+                }
+            } else {
+                _signupState.value = SignupState.Error("Failed to check verification status")
+                Log.e(TAG, "Failed to check verification status", task.exception)
+            }
+        }
+    }
 }
 
 // Sealed class to represent different states of the signup process
@@ -84,4 +121,8 @@ sealed class SignupState {
     object Loading : SignupState()
     data class Success(val user: UserModel) : SignupState()
     data class Error(val message: String) : SignupState()
+    data class VerificationSent(val user: UserModel) : SignupState()
+    object VerificationComplete : SignupState()
+    object VerificationPending : SignupState()
+    object CheckingVerification : SignupState()
 }

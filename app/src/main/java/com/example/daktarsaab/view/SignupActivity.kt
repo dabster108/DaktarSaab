@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,22 +72,46 @@ class SignupActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SignupScreen(
-                        onLoginClick = {
-                            val intent = Intent(this@SignupActivity, LoginActivity::class.java)
-                            startActivity(intent)
-                            finish()
-                        },
-                        darkMode = darkMode,
-                        onToggleDarkMode = { darkMode = !darkMode },
-                        viewModel = viewModel,
-                        onSignupSuccess = {
-                            // Navigate to main activity or dashboard
-                            val intent = Intent(this@SignupActivity, MainActivity::class.java)
-                            startActivity(intent)
-                            finish()
+                    val signupState by viewModel.signupState.observeAsState()
+
+                    when (signupState) {
+                        is SignupState.VerificationSent,
+                        is SignupState.VerificationPending,
+                        is SignupState.CheckingVerification -> {
+                            EmailVerificationScreen(
+                                email = (signupState as? SignupState.VerificationSent)?.user?.email ?: "",
+                                onCheckVerification = { viewModel.checkEmailVerification() },
+                                verificationState = signupState,
+                                darkMode = darkMode
+                            )
                         }
-                    )
+                        is SignupState.VerificationComplete -> {
+                            VerificationCompleteScreen(
+                                onContinue = {
+                                    // Navigate to login screen
+                                    val intent = Intent(this@SignupActivity, LoginActivity::class.java)
+                                    startActivity(intent)
+                                    finish()
+                                },
+                                darkMode = darkMode
+                            )
+                        }
+                        else -> {
+                            SignupScreen(
+                                onLoginClick = {
+                                    val intent = Intent(this@SignupActivity, LoginActivity::class.java)
+                                    startActivity(intent)
+                                    finish()
+                                },
+                                darkMode = darkMode,
+                                onToggleDarkMode = { darkMode = !darkMode },
+                                viewModel = viewModel,
+                                onSignupSuccess = {
+                                    // This callback is not used anymore since we're showing verification screen
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -520,6 +545,159 @@ private fun BlueCheckmark() {
             contentDescription = "Valid Email",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+@Composable
+fun EmailVerificationScreen(
+    email: String,
+    onCheckVerification: () -> Unit,
+    verificationState: SignupState?,
+    darkMode: Boolean
+) {
+    val isChecking = verificationState is SignupState.CheckingVerification
+    val emailToShow = if (email.isBlank()) "your email" else email
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Email verification animation
+        val composition by rememberLottieComposition(LottieCompositionSpec.Asset("email_verification.json"))
+        val progress by animateLottieCompositionAsState(
+            composition = composition,
+            iterations = LottieConstants.IterateForever
+        )
+
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.size(250.dp)
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "Verify Your Email",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "We've sent a verification email to $emailToShow",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Please check your inbox and click on the verification link to complete your registration.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Button(
+            onClick = onCheckVerification,
+            enabled = !isChecking,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            if (isChecking) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("I've Verified My Email", fontSize = 16.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Didn't receive the email? Check your spam folder or click the button to check if your email has been verified.",
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+        )
+    }
+}
+
+@Composable
+fun VerificationCompleteScreen(
+    onContinue: () -> Unit,
+    darkMode: Boolean
+) {
+    // Auto redirect after 3 seconds
+    LaunchedEffect(Unit) {
+        delay(3000)
+        onContinue()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Success animation
+        val composition by rememberLottieComposition(LottieCompositionSpec.Asset("email_success.json"))
+        val progress by animateLottieCompositionAsState(
+            composition = composition,
+            iterations = 1,
+            isPlaying = true,
+            speed = 0.7f,
+            restartOnPlay = false
+        )
+
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.size(250.dp)
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "Email Verified Successfully!",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Your email has been verified. You can now log in to your account.",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Redirecting to login page...",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center
         )
     }
 }
