@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.database)
     implementation(libs.compose.ui.graphics)
+    implementation("com.google.firebase:firebase-auth:23.2.1")
     androidTestImplementation(platform(libs.compose.bom))
 
     implementation(libs.core.ktx)
@@ -81,6 +82,9 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.extended)
+
+    // Add Compose-LiveData integration
+    implementation(libs.androidx.runtime.livedata)
 
     implementation(libs.material) // Added Material Components for Android
 

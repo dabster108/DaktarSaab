@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Patterns
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -22,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,16 +38,26 @@ import androidx.compose.ui.text.input.*
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import kotlinx.coroutines.delay
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
+import com.example.daktarsaab.viewmodel.SignupState
+import com.example.daktarsaab.viewmodel.SignupViewModel
 
 class SignupActivity : ComponentActivity() {
+
+    private lateinit var viewModel: SignupViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize ViewModel
+        viewModel = ViewModelProvider(this)[SignupViewModel::class.java]
+
         setContent {
             var darkMode by rememberSaveable { mutableStateOf(false) }
             val isSystemDark = isSystemInDarkTheme()
@@ -66,7 +78,14 @@ class SignupActivity : ComponentActivity() {
                             finish()
                         },
                         darkMode = darkMode,
-                        onToggleDarkMode = { darkMode = !darkMode }
+                        onToggleDarkMode = { darkMode = !darkMode },
+                        viewModel = viewModel,
+                        onSignupSuccess = {
+                            // Navigate to main activity or dashboard
+                            val intent = Intent(this@SignupActivity, MainActivity::class.java)
+                            startActivity(intent)
+                            finish()
+                        }
                     )
                 }
             }
@@ -79,7 +98,9 @@ class SignupActivity : ComponentActivity() {
 fun SignupScreen(
     onLoginClick: () -> Unit,
     darkMode: Boolean,
-    onToggleDarkMode: () -> Unit
+    onToggleDarkMode: () -> Unit,
+    viewModel: SignupViewModel,
+    onSignupSuccess: () -> Unit
 ) {
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
@@ -90,13 +111,41 @@ fun SignupScreen(
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var isCheckingEmail by remember { mutableStateOf(false) }
 
+    // State to track the signup button loading
+    var isSigningUp by remember { mutableStateOf(false) }
+
+    // Observe the signup state from ViewModel
+    val signupState by viewModel.signupState.observeAsState()
+    val context = LocalContext.current
+
+    // Handle signup state changes
+    LaunchedEffect(signupState) {
+        when (signupState) {
+            is SignupState.Loading -> {
+                isSigningUp = true
+            }
+            is SignupState.Success -> {
+                isSigningUp = false
+                Toast.makeText(context, "Signup successful!", Toast.LENGTH_SHORT).show()
+                onSignupSuccess()
+            }
+            is SignupState.Error -> {
+                isSigningUp = false
+                val errorMessage = (signupState as SignupState.Error).message
+                Toast.makeText(context, "Error: $errorMessage", Toast.LENGTH_LONG).show()
+            }
+            else -> {
+                // Initial state, do nothing
+            }
+        }
+    }
+
     val isEmailValid = remember(email) {
         Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var isImageUploaded by remember { mutableStateOf(false) }
-    val context = LocalContext.current
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -367,7 +416,16 @@ fun SignupScreen(
                 exit = fadeOut()
             ) {
                 Button(
-                    onClick = { /* Handle sign up */ },
+                    onClick = {
+                        // Validate fields
+                        if (password != confirmPassword) {
+                            Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+
+                        // Call ViewModel to register user
+                        viewModel.registerUser(firstName, lastName, email, password)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
@@ -375,14 +433,23 @@ fun SignupScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    enabled = firstName.isNotBlank() &&
-                            lastName.isNotBlank() &&
-                            email.isNotBlank() &&
-                            password.isNotBlank() &&
-                            confirmPassword.isNotBlank() &&
-                            password == confirmPassword
+                    enabled = !isSigningUp &&
+                             firstName.isNotBlank() &&
+                             lastName.isNotBlank() &&
+                             email.isNotBlank() &&
+                             password.isNotBlank() &&
+                             confirmPassword.isNotBlank() &&
+                             password == confirmPassword
                 ) {
-                    Text("Sign Up", fontSize = 16.sp)
+                    if (isSigningUp) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Sign Up", fontSize = 16.sp)
+                    }
                 }
             }
 
@@ -461,6 +528,10 @@ private fun BlueCheckmark() {
 @Composable
 fun SignupScreenPreview() {
     DaktarSaabTheme(darkTheme = false) {
-        SignupScreen(onLoginClick = {}, darkMode = false, onToggleDarkMode = {})
+        SignupScreen(
+            onLoginClick = {}, darkMode = false, onToggleDarkMode = {},
+            viewModel = TODO(),
+            onSignupSuccess = TODO()
+        )
     }
 }
