@@ -126,3 +126,4 @@ sealed class SignupState {
     object VerificationPending : SignupState()
     object CheckingVerification : SignupState()
 }
+

@@ -37,6 +37,85 @@ class LoginViewModel : ViewModel() {
 
         _loginState.value = LoginState.Loading
 
+        // MODIFIED APPROACH: Always check database first, then only use Firebase Auth if needed
+        viewModelScope.launch {
+            try {
+                // First check if this user exists in our database by email
+                val user = userRepository.getUserByEmail(email)
+
+                if (user != null) {
+                    // User exists in database, check if password matches
+                    if (user.password == password) {
+                        // Database password matches! Login successful
+                        _loginState.value = LoginState.Success(user)
+                        Log.d(TAG, "Login successful using database credentials")
+
+                        // Optionally try to sign in to Firebase Auth in the background
+                        // to keep sessions in sync, but don't block the login process
+                        try {
+                            auth.signInWithEmailAndPassword(email, password)
+                                .addOnSuccessListener {
+                                    Log.d(TAG, "Firebase Auth sign-in successful after database auth")
+                                }
+                                .addOnFailureListener { e ->
+                                    Log.d(TAG, "Firebase Auth sign-in failed after database auth: ${e.message}")
+                                    // We don't care if this fails since we're using DB auth
+                                }
+                        } catch (e: Exception) {
+                            // Ignore Firebase Auth errors
+                            Log.d(TAG, "Ignoring Firebase Auth error: ${e.message}")
+                        }
+                    } else {
+                        // Password doesn't match database - try Firebase Auth as fallback
+                        // This helps users who might have reset password through other means
+                        authenticateWithFirebaseAuth(email, password)
+                    }
+                } else {
+                    // User not found in database - try Firebase Auth as fallback
+                    authenticateWithFirebaseAuth(email, password)
+                }
+            } catch (e: Exception) {
+                // Error with database lookup - try Firebase Auth as fallback
+                Log.e(TAG, "Error looking up user in database: ${e.message}")
+                authenticateWithFirebaseAuth(email, password)
+            }
+        }
+    }
+
+    // Helper function to sync Firebase Auth with the database password
+    private fun syncWithFirebaseAuth(email: String, password: String, user: UserModel) {
+        // First try normal sign-in
+        auth.signInWithEmailAndPassword(email, password)
+            .addOnSuccessListener {
+                // Perfect! Both DB and Auth are in sync
+                _loginState.value = LoginState.Success(user)
+                Log.d(TAG, "Login successful for user with matching DB and Auth passwords")
+            }
+            .addOnFailureListener { exception ->
+                // If auth fails but DB password matches, we need to update Firebase Auth
+                // Two approaches: either create a new account or update existing account
+
+                // Try to create a new auth account with the email/password
+                auth.createUserWithEmailAndPassword(email, password)
+                    .addOnSuccessListener {
+                        _loginState.value = LoginState.Success(user)
+                        Log.d(TAG, "Created new Firebase Auth account to match DB credentials")
+                    }
+                    .addOnFailureListener { createException ->
+                        // If we can't create a new account, the account probably exists
+                        // but with a different password. In this case, let the user know
+                        // they need to use the custom password reset again
+                        _loginState.value = LoginState.Error(
+                            "Your database password was reset but Firebase Auth is out of sync. " +
+                            "Please use 'Forgot Password' once more to fully reset your account."
+                        )
+                        Log.e(TAG, "Auth and DB passwords are out of sync", createException)
+                    }
+            }
+    }
+
+    // Original Firebase Auth authentication method
+    private fun authenticateWithFirebaseAuth(email: String, password: String) {
         auth.signInWithEmailAndPassword(email, password)
             .addOnSuccessListener { authResult ->
                 // Get current user ID

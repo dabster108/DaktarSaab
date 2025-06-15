@@ -49,6 +49,27 @@ class UserRepositoryImpl : UserRepository {
         }
     }
 
+    override suspend fun getUserByEmail(email: String): UserModel? {
+        return suspendCoroutine { continuation ->
+            // Query all users and filter by email locally
+            usersRef.get().addOnSuccessListener { snapshot ->
+                if (snapshot.exists()) {
+                    for (userSnapshot in snapshot.children) {
+                        val user = userSnapshot.getValue(UserModel::class.java)
+                        if (user != null && user.email == email) {
+                            continuation.resume(user)
+                            return@addOnSuccessListener
+                        }
+                    }
+                }
+                // No user found with this email
+                continuation.resume(null)
+            }.addOnFailureListener { exception ->
+                continuation.resumeWithException(exception)
+            }
+        }
+    }
+
     override suspend fun updateUser(user: UserModel): Boolean {
         return try {
             usersRef.child(user.userId).setValue(user).await()
