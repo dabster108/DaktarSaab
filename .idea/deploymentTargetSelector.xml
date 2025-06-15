@@ -2,8 +2,9 @@
 <project version="4">
   <component name="deploymentTargetSelector">
     <selectionStates>
-      <SelectionState runConfigName="app">
+      <SelectionState runConfigName="XrayAnalysisActivity">
         <option name="selectionMode" value="DROPDOWN" />
+<<<<<<< HEAD
         <DropdownSelection timestamp="2025-05-28T15:03:11.461995Z">
           <Target type="DEFAULT_BOOT">
             <handle>
@@ -24,12 +25,15 @@
           </Target>
         </DropdownSelection>
         <DialogSelection />
+=======
+>>>>>>> 20a123741e00a284c15467acfc8c1f83aec4ec4c
       </SelectionState>
 =======
 >>>>>>> 98936c6ed75b0db1698df970229d9db7161889b1
       <SelectionState runConfigName="DashboardActivity">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
+<<<<<<< HEAD
       <SelectionState runConfigName="DashboardActivity (1)">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
@@ -42,6 +46,17 @@
       </SelectionState>
 =======
 >>>>>>> 98936c6ed75b0db1698df970229d9db7161889b1
+=======
+      <SelectionState runConfigName="SymptomAnalayzes">
+        <option name="selectionMode" value="DROPDOWN" />
+      </SelectionState>
+      <SelectionState runConfigName="DoctorBookActivity">
+        <option name="selectionMode" value="DROPDOWN" />
+      </SelectionState>
+      <SelectionState runConfigName="DashboardActivity (1)">
+        <option name="selectionMode" value="DROPDOWN" />
+      </SelectionState>
+>>>>>>> 20a123741e00a284c15467acfc8c1f83aec4ec4c
     </selectionStates>
   </component>
 </project>

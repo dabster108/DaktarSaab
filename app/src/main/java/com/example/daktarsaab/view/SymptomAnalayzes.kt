@@ -1,4 +1,4 @@
-package com.example.daktarsaab
+package com.example.daktarsaab.view
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -29,18 +33,22 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.daktarsaab.ui.theme.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
+
+// Define custom colors
+val customPrimaryBlue = Color(0xFF007AFF)
+val customAccentTurquoise = Color(0xFF5AC8FA)
+val lightBlueBackground = Color(0xFFE0F2FF) // A light blue for backgrounds/containers
 
 class SymptomAnalayzes : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,29 +70,27 @@ class SymptomAnalayzes : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun EnhancedSymptomAnalyzer() {
-    var currentStep by remember { mutableStateOf(1) }
+    var currentStep by remember { mutableStateOf(0) } // Start at step 0 for intro screen
     var bodyPart by remember { mutableStateOf("") }
     var manualDescription by remember { mutableStateOf("") }
     var mcqAnswers by remember { mutableStateOf(listOf("", "", "")) }
     var responseText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Animation states
-    val density = LocalDensity.current
     val animatedProgress = remember { Animatable(0f) }
 
-    // Common body parts with icons
+    // Updated body part options with more specific icons
     val bodyPartOptions = listOf(
         "Head" to Icons.Outlined.Face,
-        "Stomach" to Icons.Outlined.Fastfood,
-        "Chest" to Icons.Outlined.Favorite,
-        "Back" to Icons.Outlined.Person,
-        "Leg" to Icons.Outlined.DirectionsWalk,
-        "Arm" to Icons.Outlined.PanTool,
-        "Throat" to Icons.Outlined.RecordVoiceOver,
+        "Stomach" to Icons.Outlined.MedicalServices,
+        "Chest" to Icons.Filled.MonitorHeart,
+        "Back" to Icons.Outlined.PersonOutline,
+        "Leg" to Icons.AutoMirrored.Outlined.DirectionsWalk,
+        "Arm" to Icons.Outlined.WavingHand,
+        "Throat" to Icons.Outlined.Campaign,
         "Eye" to Icons.Outlined.Visibility,
         "Ear" to Icons.Outlined.Hearing,
-        "Tooth" to Icons.Outlined.EmojiEmotions
+        "Tooth" to Icons.Outlined.SentimentVeryDissatisfied
     )
 
     val mcqQuestions = listOf(
@@ -94,144 +100,294 @@ fun EnhancedSymptomAnalyzer() {
     )
 
     LaunchedEffect(currentStep) {
+        // Skip step 0 when calculating progress
+        val stepForProgress = if (currentStep == 0) 0 else currentStep
         animatedProgress.animateTo(
-            targetValue = currentStep.toFloat() / 6f,
+            targetValue = stepForProgress.toFloat() / 5f,
             animationSpec = tween(500, easing = FastOutSlowInEasing)
         )
     }
 
+    // Entry animation state
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
     Scaffold(
         topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Text(
-                            when (currentStep) {
-                                1 -> "Select Body Part"
-                                2 -> "Choose Input Method"
-                                3 -> "Describe Symptoms"
-                                4 -> "Answer Questions"
-                                5, 6 -> "Analysis Results"
-                                else -> "Symptom Analyzer"
-                            },
-                            fontWeight = FontWeight.Bold
-                        )
-                    },
-                    navigationIcon = {
-                        if (currentStep > 1) {
-                            IconButton(onClick = {
-                                currentStep = when (currentStep) {
-                                    3, 4 -> 2
-                                    5 -> 3
-                                    6 -> 4
-                                    else -> currentStep - 1
+            // Wrap TopAppBar and ProgressIndicator in an AnimatedVisibility for entry animation
+            // Only show the app bar after the intro screen
+            AnimatedVisibility(
+                visible = visible && currentStep > 0,
+                enter = slideInVertically(
+                    animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)
+                ) { fullHeight -> -fullHeight } // Slide from top
+                        + fadeIn(animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)),
+                exit = slideOutVertically(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutLinearInEasing)
+                ) { fullHeight -> -fullHeight } // Slide out to top
+                        + fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutLinearInEasing))
+            ) {
+                Column {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                "Symptom Analyzer",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        },
+                        navigationIcon = {
+                            if (currentStep > 1) {
+                                IconButton(onClick = {
+                                    currentStep--
+                                }) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Go Back",
+                                        tint = Color.White
+                                    )
                                 }
-                            }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                             }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = customPrimaryBlue,
+                            titleContentColor = Color.White
+                        )
                     )
-                )
 
-                // Progress indicator
-                LinearProgressIndicator(
-                    progress = { animatedProgress.value },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                    // Progress indicator
+                    LinearProgressIndicator(
+                        progress = { animatedProgress.value },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = customAccentTurquoise,
+                        trackColor = customPrimaryBlue.copy(alpha = 0.3f)
+                    )
+                }
             }
         }
-    ) { padding ->
-        AnimatedContent(
-            targetState = currentStep,
-            transitionSpec = {
-                val direction = if (targetState > initialState)
-                    AnimatedContentTransitionScope.SlideDirection.Left
-                else
-                    AnimatedContentTransitionScope.SlideDirection.Right
+    ) { paddingValues ->
+        // Wrap the main content (AnimatedContent) in another AnimatedVisibility for entry animation
+        AnimatedVisibility(
+            visible = visible,
+            enter = slideInVertically(
+                animationSpec = tween(durationMillis = 500, delayMillis = 150, easing = LinearOutSlowInEasing)
+            ) { fullHeight -> fullHeight / 10 } // Slide up gently from bottom
+                    + fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = 150, easing = LinearOutSlowInEasing)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutLinearInEasing))
+        ) {
+            AnimatedContent<Int>(
+                targetState = currentStep,
+                transitionSpec = {
+                    val direction = if (targetState > initialState)
+                        AnimatedContentTransitionScope.SlideDirection.Left
+                    else
+                        AnimatedContentTransitionScope.SlideDirection.Right
 
-                slideIntoContainer(direction) with
-                        slideOutOfContainer(direction)
-            },
-            label = "screen_transition"
-        ) { step ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp)
-            ) {
-                when (step) {
-                    1 -> {
-                        BodyPartSelectionScreen(
-                            bodyPart = bodyPart,
-                            onBodyPartChange = { bodyPart = it },
-                            bodyPartOptions = bodyPartOptions,
-                            onNext = { currentStep = 2 }
+                    slideIntoContainer(
+                        towards = direction,
+                        animationSpec = tween(durationMillis = 400, easing = LinearOutSlowInEasing)
+                    ).togetherWith(
+                        slideOutOfContainer(
+                            towards = direction,
+                            animationSpec = tween(durationMillis = 400, easing = FastOutLinearInEasing)
                         )
-                    }
-                    2 -> {
-                        InputMethodSelectionScreen(
-                            onManualSelected = { currentStep = 3 },
-                            onQuestionsSelected = { currentStep = 4 }
-                        )
-                    }
-                    3 -> {
-                        ManualDescriptionScreen(
-                            description = manualDescription,
-                            onDescriptionChange = { manualDescription = it },
-                            onAnalyze = { currentStep = 5 }
-                        )
-                    }
-                    4 -> {
-                        MCQQuestionsScreen(
-                            questions = mcqQuestions,
-                            answers = mcqAnswers,
-                            onAnswerSelected = { idx, answer ->
-                                mcqAnswers = mcqAnswers.toMutableList().apply { this[idx] = answer }
-                            },
-                            onNext = { currentStep = 6 }
-                        )
-                    }
-                    5 -> {
-                        AnalysisScreen(
-                            bodyPart = bodyPart,
-                            description = manualDescription,
-                            isLoading = isLoading,
-                            setLoading = { isLoading = it },
-                            responseText = responseText,
-                            setResponseText = { responseText = it },
-                            onBackToStart = {
-                                currentStep = 1
-                                bodyPart = ""
-                                manualDescription = ""
-                                responseText = ""
-                            }
-                        )
-                    }
-                    6 -> {
-                        AnalysisScreen(
-                            bodyPart = bodyPart,
-                            description = mcqQuestions.mapIndexed { idx, (q, _) -> "$q ${mcqAnswers[idx]}" }.joinToString("\n"),
-                            isLoading = isLoading,
-                            setLoading = { isLoading = it },
-                            responseText = responseText,
-                            setResponseText = { responseText = it },
-                            onBackToStart = {
-                                currentStep = 1
-                                bodyPart = ""
-                                mcqAnswers = listOf("", "", "")
-                                responseText = ""
-                            }
-                        )
+                    )
+                },
+                label = "screen_transition",
+                modifier = Modifier.padding(paddingValues)
+            ) { step ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    when (step) {
+                        0 -> {
+                            IntroScreen(onStart = { currentStep = 1 })
+                        }
+                        1 -> {
+                            BodyPartSelectionScreen(
+                                bodyPart = bodyPart,
+                                onBodyPartChange = { bodyPart = it },
+                                bodyPartOptions = bodyPartOptions,
+                                onNext = { currentStep = 2 }
+                            )
+                        }
+                        2 -> {
+                            InputMethodSelectionScreen(
+                                onManualSelected = { currentStep = 3 },
+                                onQuestionsSelected = { currentStep = 4 }
+                            )
+                        }
+                        3 -> {
+                            ManualDescriptionScreen(
+                                description = manualDescription,
+                                onDescriptionChange = { manualDescription = it },
+                                onAnalyze = { currentStep = 5 }
+                            )
+                        }
+                        4 -> {
+                            MCQQuestionsScreen(
+                                questions = mcqQuestions,
+                                answers = mcqAnswers,
+                                onAnswerSelected = { index, answer ->
+                                    mcqAnswers = mcqAnswers.toMutableList().apply {
+                                        this[index] = answer
+                                    }
+                                },
+                                onNext = { currentStep = 5 }
+                            )
+                        }
+                        5 -> {
+                            AnalysisScreen(
+                                bodyPart = bodyPart,
+                                description = if (currentStep == 3) manualDescription else mcqAnswers.joinToString(", "),
+                                isLoading = isLoading,
+                                setLoading = { isLoading = it },
+                                responseText = responseText,
+                                setResponseText = { responseText = it },
+                                onBackToStart = {
+                                    currentStep = 0
+                                    bodyPart = ""
+                                    manualDescription = ""
+                                    mcqAnswers = listOf("", "", "")
+                                    responseText = ""
+                                }
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun IntroScreen(onStart: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Title with animation
+        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+        val scale by infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.05f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "scale"
+        )
+
+        Text(
+            "Symptom Analyzer",
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
+            color = customPrimaryBlue,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.scale(scale)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Icon with animation
+        val rotation by infiniteTransition.animateFloat(
+            initialValue = -5f,
+            targetValue = 5f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "rotation"
+        )
+
+        Icon(
+            imageVector = Icons.Default.MedicalServices,
+            contentDescription = null,
+            tint = customPrimaryBlue,
+            modifier = Modifier
+                .size(120.dp)
+                .rotate(rotation)
+                .shadow(8.dp, CircleShape)
+                .clip(CircleShape)
+                .background(lightBlueBackground)
+                .padding(20.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Description
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "How It Works",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Text(
+                    "1. Select the body part where you're experiencing discomfort",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+                Text(
+                    "2. Describe your symptoms or answer a few questions",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+                Text(
+                    "3. Get a personalized symptom analysis",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+                Text(
+                    "Note: This is not a replacement for professional medical advice",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Start button
+        Button(
+            onClick = onStart,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = customPrimaryBlue,
+                contentColor = Color.White
+            )
+        ) {
+            Text(
+                "Start Analysis",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
         }
     }
 }
@@ -321,8 +477,8 @@ fun BodyPartSelectionScreen(
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = customPrimaryBlue,
+                contentColor = Color.White
             )
         ) {
             Text(
@@ -331,7 +487,7 @@ fun BodyPartSelectionScreen(
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.Default.ArrowForward, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
         }
     }
 }
@@ -344,16 +500,16 @@ fun BodyPartOption(
     onClick: () -> Unit
 ) {
     val backgroundColor = if (isSelected)
-        MaterialTheme.colorScheme.primaryContainer
+        customPrimaryBlue.copy(alpha = 0.25f)
     else
         MaterialTheme.colorScheme.surfaceVariant
 
     val contentColor = if (isSelected)
-        MaterialTheme.colorScheme.onPrimaryContainer
+        customPrimaryBlue
     else
         MaterialTheme.colorScheme.onSurfaceVariant
 
-    val elevation = if (isSelected) 4.dp else 1.dp
+    val elevation = if (isSelected) 8.dp else 2.dp
 
     // Pulsating animation for selected item
     val infiniteTransition = rememberInfiniteTransition(label = "selection")
@@ -367,6 +523,7 @@ fun BodyPartOption(
         label = "scale"
     )
 
+    // Use a single Column with all modifiers applied to it - no nested elements
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -382,11 +539,12 @@ fun BodyPartOption(
         Icon(
             imageVector = icon,
             contentDescription = name,
-            modifier = Modifier
-                .size(32.dp)
-                .padding(bottom = 8.dp),
+            modifier = Modifier.size(32.dp),
             tint = contentColor
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
             text = name,
             color = contentColor,
@@ -429,20 +587,20 @@ fun InputMethodSelectionScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(customPrimaryBlue.copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.Edit,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = customPrimaryBlue,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -451,13 +609,12 @@ fun InputMethodSelectionScreen(
 
                 Column {
                     Text(
-                        "Type Manually",
+                        "Describe manually",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Describe your symptoms in your own words",
+                        "Type your symptoms in detail",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -479,20 +636,20 @@ fun InputMethodSelectionScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(customPrimaryBlue.copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Default.CheckCircle,
+                        Icons.Default.QuestionAnswer,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tint = customPrimaryBlue,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -501,13 +658,12 @@ fun InputMethodSelectionScreen(
 
                 Column {
                     Text(
-                        "Answer Questions",
+                        "Answer questions",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Select from predefined options to describe your pain",
+                        "Choose from multiple options",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -579,8 +735,8 @@ fun ManualDescriptionScreen(
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = customPrimaryBlue,
+                contentColor = Color.White
             )
         ) {
             Text(
@@ -632,46 +788,37 @@ fun MCQQuestionsScreen(
                         .padding(16.dp)
                 ) {
                     Text(
-                        question,
+                        text = "${idx + 1}. $question",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 12.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
                     options.forEach { option ->
-                        val isSelected = answers[idx] == option
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp)
+                                .padding(vertical = 4.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceVariant
+                                    if (answers[idx] == option)
+                                        customPrimaryBlue.copy(alpha = 0.15f)
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                 )
                                 .clickable { onAnswerSelected(idx, option) }
-                                .padding(12.dp),
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = isSelected,
+                                selected = answers[idx] == option,
                                 onClick = { onAnswerSelected(idx, option) },
                                 colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    selectedColor = customPrimaryBlue
                                 )
                             )
-                            Text(
-                                option,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(option)
                         }
                     }
                 }
@@ -688,8 +835,8 @@ fun MCQQuestionsScreen(
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = customPrimaryBlue,
+                contentColor = Color.White
             )
         ) {
             Text(
@@ -749,8 +896,8 @@ fun AnalysisScreen(
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = customPrimaryBlue,
+                    contentColor = Color.White
                 )
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
@@ -813,8 +960,8 @@ fun LoadingAnimation() {
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                            customPrimaryBlue,
+                            customAccentTurquoise
                         )
                     )
                 ),
@@ -823,7 +970,7 @@ fun LoadingAnimation() {
             Icon(
                 Icons.Default.Favorite,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
+                tint = Color.White,
                 modifier = Modifier
                     .size(64.dp)
                     .rotate(rotation)
@@ -866,7 +1013,7 @@ fun EnhancedDiagnosisResult(response: String) {
             "Your Diagnosis Results",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
+            color = customPrimaryBlue,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
@@ -876,26 +1023,34 @@ fun EnhancedDiagnosisResult(response: String) {
         } else {
             sections.forEachIndexed { index, section ->
                 val sectionColor = when (index) {
-                    0 -> MaterialTheme.colorScheme.primaryContainer // Diagnosis
-                    1 -> MaterialTheme.colorScheme.errorContainer // Possible Diseases
-                    2 -> MaterialTheme.colorScheme.secondaryContainer // Treatment
-                    3 -> MaterialTheme.colorScheme.tertiaryContainer // Medicine
+                    0 -> lightBlueBackground
+                    1 -> MaterialTheme.colorScheme.errorContainer
+                    2 -> customAccentTurquoise.copy(alpha = 0.2f)
+                    3 -> Color(0xFFE6F7FF)
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 }
 
                 val sectionTextColor = when (index) {
-                    0 -> MaterialTheme.colorScheme.onPrimaryContainer
+                    0 -> customPrimaryBlue
                     1 -> MaterialTheme.colorScheme.onErrorContainer
-                    2 -> MaterialTheme.colorScheme.onSecondaryContainer
-                    3 -> MaterialTheme.colorScheme.onTertiaryContainer
+                    2 -> customAccentTurquoise.copy(alpha = 1f).darken(0.2f)
+                    3 -> customPrimaryBlue.darken(0.1f)
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
+                val sectionIconColor = when (index) {
+                    0 -> customPrimaryBlue
+                    1 -> MaterialTheme.colorScheme.error
+                    2 -> customAccentTurquoise.darken(0.2f)
+                    3 -> customPrimaryBlue.darken(0.1f)
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 }
 
                 val sectionIcon = when (index) {
-                    0 -> Icons.Default.MedicalServices // Diagnosis
-                    1 -> Icons.Default.Error // Possible Diseases
-                    2 -> Icons.Default.Healing // Treatment
-                    3 -> Icons.Default.Medication // Medicine
+                    0 -> Icons.Default.MedicalServices
+                    1 -> Icons.Default.Error
+                    2 -> Icons.Default.Healing
+                    3 -> Icons.Default.Medication
                     else -> Icons.Default.Info
                 }
 
@@ -903,11 +1058,20 @@ fun EnhancedDiagnosisResult(response: String) {
                     section = section,
                     sectionColor = sectionColor,
                     sectionTextColor = sectionTextColor,
-                    sectionIcon = sectionIcon
+                    sectionIcon = sectionIcon,
+                    sectionIconColor = sectionIconColor
                 )
             }
         }
     }
+}
+
+// Helper to darken a color (approximation)
+fun Color.darken(factor: Float = 0.1f): Color {
+    val r = (red * (1 - factor)).coerceIn(0f, 1f)
+    val g = (green * (1 - factor)).coerceIn(0f, 1f)
+    val b = (blue * (1 - factor)).coerceIn(0f, 1f)
+    return Color(r, g, b, alpha)
 }
 
 @Composable
@@ -915,7 +1079,8 @@ fun DiagnosisSection(
     section: String,
     sectionColor: Color,
     sectionTextColor: Color,
-    sectionIcon: ImageVector
+    sectionIcon: ImageVector,
+    sectionIconColor: Color
 ) {
     val lines = section.lines()
     if (lines.isEmpty()) return
@@ -943,23 +1108,23 @@ fun DiagnosisSection(
                 modifier = Modifier.padding(bottom = 12.dp)
             ) {
                 Icon(
-                    sectionIcon,
+                    imageVector = sectionIcon,
                     contentDescription = null,
-                    tint = sectionTextColor,
+                    tint = sectionIconColor,
                     modifier = Modifier.size(24.dp)
                 )
 
                 Spacer(modifier = Modifier.width(8.dp))
 
                 Text(
-                    title,
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = sectionTextColor
                 )
             }
 
-            Divider(
+            HorizontalDivider(
                 color = sectionTextColor.copy(alpha = 0.2f),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -968,28 +1133,30 @@ fun DiagnosisSection(
             if (bulletPoints.size > 1) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     bulletPoints.forEach { point ->
-                        if (point.isNotBlank()) {
-                            Row(verticalAlignment = Alignment.Top) {
-                                Text(
-                                    "• ",
-                                    color = sectionTextColor,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    point.trim(),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = sectionTextColor,
-                                    lineHeight = 22.sp
-                                )
-                            }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Text(
+                                "•",
+                                color = sectionTextColor,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(end = 8.dp, top = 2.dp)
+                            )
+                            Text(
+                                point.trim(),
+                                color = sectionTextColor,
+                                style = MaterialTheme.typography.bodyLarge,
+                                lineHeight = 22.sp
+                            )
                         }
                     }
                 }
             } else {
                 Text(
                     content,
-                    style = MaterialTheme.typography.bodyLarge,
                     color = sectionTextColor,
+                    style = MaterialTheme.typography.bodyLarge,
                     lineHeight = 22.sp
                 )
             }
@@ -1000,27 +1167,22 @@ fun DiagnosisSection(
 @Composable
 fun ErrorResultCard(errorResponse: String) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 12.dp)
             ) {
                 Icon(
-                    Icons.Default.Error,
+                    imageVector = Icons.Outlined.ReportProblem,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(24.dp)
                 )
 
@@ -1030,19 +1192,19 @@ fun ErrorResultCard(errorResponse: String) {
                     "Error Processing Results",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = MaterialTheme.colorScheme.error
                 )
             }
 
-            Divider(
-                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.2f),
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
             Text(
                 "Could not generate a proper diagnosis. Please try again with more details, or check your internet connection.",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onErrorContainer,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 22.sp
             )
 
@@ -1051,7 +1213,7 @@ fun ErrorResultCard(errorResponse: String) {
                 Text(
                     "Details: ${errorResponse.take(200)}...",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
         }
@@ -1099,7 +1261,7 @@ fun getDiagnosisFromAPI(symptomDetails: String): String {
             "API Error: $responseCode - $errorResponse"
         }
 
-        val textPattern = "\"text\":\\s*\"((?:\\\\.|[^\\\"])*?)\"".toRegex()
+        val textPattern = "\"text\":\\s*\"((?:\\\\.|[^\"])*?)\"".toRegex()
         val matchResult = textPattern.find(response)
 
         if (matchResult != null) {

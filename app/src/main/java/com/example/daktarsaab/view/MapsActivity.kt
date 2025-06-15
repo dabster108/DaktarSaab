@@ -1,30 +1,36 @@
-package com.example.daktarsaab
+package com.example.daktarsaab.view
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Color as AndroidColor
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocalHospital
+import androidx.compose.material.icons.filled.LocalPharmacy
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
@@ -37,20 +43,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
-import retrofit2.http.Body
-import org.osmdroid.util.BoundingBox
-import android.graphics.Color as AndroidColor
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 
 // --- Geoapify Data Classes (Autocomplete) ---
 data class GeoapifyAutocompleteResponse(val features: List<GeoapifyFeature>)
@@ -298,7 +301,7 @@ class MapsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Configuration.getInstance().userAgentValue = packageName
         setContent {
-            DaktarSaabTheme {
+            DaktarSaabTheme(content = {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MedicalMapScreen(
                         onLocationPermissionRequested = {
@@ -308,7 +311,7 @@ class MapsActivity : ComponentActivity() {
                         permissionSignal = permissionGrantedSignal
                     )
                 }
-            }
+            }, colorScheme = colorScheme)
         }
     }
 }
@@ -320,7 +323,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
     val coroutineScope = rememberCoroutineScope()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var currentLocation by remember { mutableStateOf<GeoPoint?>(null) }
-
+    var selectedLocationName by remember { mutableStateOf("") }
     // State for start and destination search fields
     var startSearchQuery by remember { mutableStateOf("") }
     var destinationSearchQuery by remember { mutableStateOf("") }
@@ -349,7 +352,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
     var placeDetailsTitle by remember { mutableStateOf("") }
     var placeDetailsMessage by remember { mutableStateOf("") }
 
-    val geoapifyApiKey = BuildConfig.GEOAPIFY_API_KEY // Use API key from BuildConfig
+    val geoapifyApiKey = "a2c1e9b8250045788fb3ff7389743ef3" // Hardcoded API key as requested
     var permissionCheckedInitially by remember { mutableStateOf(false) }
     var initialZoomDone by remember { mutableStateOf(false) }
 
@@ -388,14 +391,6 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                                 val lat = (it[1] as Number).toDouble()
                                 routePoints.add(GeoPoint(lat, lon))
                             }
-                        }
-                    }
-
-                    // Debug logging for first element of raw coordinates
-                    if (rawCoords.isNotEmpty()) {
-                        Log.d("MedicalMapScreen", "First element of RawCoords class: ${rawCoords.first()!!::class.java.name}")
-                        if (rawCoords.first() is List<*> && (rawCoords.first() as List<*>).isNotEmpty()){
-                            Log.d("MedicalMapScreen", "First element of first inner list class: ${(rawCoords.first() as List<*>).first()!!::class.java.name}")
                         }
                     }
                 }
@@ -528,9 +523,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
 
                 val categoryMapping = mapOf(
                     "Hospitals" to "healthcare.hospital",
-                    "Pharmacies" to "healthcare.pharmacy",
-                    "Clinics" to "healthcare.clinic",
-                    "Gas Stations" to "commercial.fuel.filling_station"
+                    "Pharmacies" to "healthcare.pharmacy"
                 )
                 val geoCategory = categoryMapping[selectedCategory!!] ?: return@launch
 
@@ -552,26 +545,26 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                     if (lat != null && lon != null) {
                         Marker(mapViewRef).apply {
                             position = GeoPoint(lat, lon)
-                            title = name // Ensure the name is displayed as the title
+                            title = name
                             snippet = feature.properties.address_line1 ?: feature.properties.formatted ?: "No address available"
+
+                            // Use different icons from R.drawable based on category
                             icon = when (selectedCategory) {
-                                "Hospitals" -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_compass)?.apply {
-                                    setTint(ContextCompat.getColor(context, R.color.hospital_color))
+                                "Hospitals" -> ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_local_hospital_24)?.apply {
+                                    setTint(ContextCompat.getColor(context, com.example.daktarsaab.R.color.hospital_color))
                                 }
-                                "Pharmacies" -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_add)?.apply {
-                                    setTint(ContextCompat.getColor(context, R.color.pharmacy_color))
+                                "Pharmacies" -> ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_local_pharmacy_24)?.apply {
+                                    setTint(ContextCompat.getColor(context, com.example.daktarsaab.R.color.pharmacy_color))
                                 }
-                                "Clinics" -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_myplaces)?.apply {
-                                    setTint(ContextCompat.getColor(context, R.color.clinic_color))
-                                }
-                                "Gas Stations" -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_directions)?.apply {
-                                    setTint(ContextCompat.getColor(context, R.color.gas_station_color))
-                                }
-                                else -> ContextCompat.getDrawable(context, android.R.drawable.ic_menu_search)
-                            } ?: ContextCompat.getDrawable(context, android.R.drawable.ic_menu_info_details) // Fallback icon
+                                else -> ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_accessibility_24)
+                            } ?: ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_accessibility_24)
+
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                            id = feature.properties.place_id // For place details lookup
+                            id = feature.properties.place_id
+
+                            // Update to set the location name when marker is clicked
                             setOnMarkerClickListener { marker, _ ->
+                                selectedLocationName = marker.title
                                 coroutineScope.launch {
                                     if (!isActive) return@launch // Avoid running in cancelled scope
                                     try {
@@ -580,17 +573,14 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                                             val detailsResponse = geoapifyService.getPlaceDetails(placeId, geoapifyApiKey)
                                             val details = detailsResponse.features.firstOrNull()?.properties
                                             if (details != null) {
-                                                val detailsTextBuilder = StringBuilder().apply {
-                                                    details.name?.let { append("Name: $it\n") }
-                                                    details.categories?.let { append("Type: ${it.joinToString(", ")}\n") }
-                                                    details.formatted?.let { append("Address: $it\n") }
-                                                }
-                                                placeDetailsTitle = "Place Details"
-                                                placeDetailsMessage = detailsTextBuilder.toString().ifEmpty { "No details available" }
+                                                placeDetailsTitle = details.name ?: "Place Details"
+                                                val addressInfo = details.formatted ?: details.address_line1 ?: "No address available"
+                                                val categoryInfo = details.categories?.joinToString(", ") ?: "No category information"
+                                                placeDetailsMessage = "Address: $addressInfo\nCategories: $categoryInfo"
                                                 showPlaceDetailsDialog = true
                                             } else {
-                                                placeDetailsTitle = "Error"
-                                                placeDetailsMessage = "No details found for this place."
+                                                placeDetailsTitle = "Place Details"
+                                                placeDetailsMessage = "No details available for this place."
                                                 showPlaceDetailsDialog = true
                                             }
                                         }
@@ -601,7 +591,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                                         showPlaceDetailsDialog = true
                                     }
                                 }
-                                true // Consume the click event
+                                true
                             }
                         }
                     } else null
@@ -610,7 +600,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                 withContext(Dispatchers.Main) {
                     newMarkers.forEach { mapViewRef?.overlays?.add(it) }
                     if (newMarkers.isNotEmpty()) {
-                        val boundingBox = org.osmdroid.util.BoundingBox.fromGeoPoints(newMarkers.map { it.position })
+                        val boundingBox = BoundingBox.fromGeoPoints(newMarkers.map { it.position })
                         mapViewRef?.zoomToBoundingBox(boundingBox.increaseByScale(1.2f), true, 100)
                     }
                     mapViewRef?.invalidate()
@@ -629,12 +619,11 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                     title = {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Back Arrow Icon
                             Icon(
-                                painter = painterResource(id = R.drawable.baseline_arrow_left_24),
+                                painter = painterResource(id = com.example.daktarsaab.R.drawable.baseline_arrow_left_24),
                                 contentDescription = "Back",
                                 tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(24.dp)
@@ -648,7 +637,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                                 horizontalArrangement = Arrangement.End
                             ) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.baseline_person_24),
+                                    painter = painterResource(id = com.example.daktarsaab.R.drawable.baseline_person_24),
                                     contentDescription = "Profile",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier
@@ -677,7 +666,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(if (isFullscreen) PaddingValues(0.dp) else scaffoldPaddingValues) // Corrected padding usage
+                .padding(if (isFullscreen) PaddingValues(0.dp) else scaffoldPaddingValues)
         ) {
             if (!isFullscreen) {
                 Column(
@@ -759,89 +748,61 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                             onClick = {
                                 coroutineScope.launch {
                                     try {
-                                        // 1. Geocode start and destination addresses
-                                        val startResult = geoapifyService.searchGeocode(text = startSearchQuery, apiKey = geoapifyApiKey, limit = 1)
-                                        val endResult = geoapifyService.searchGeocode(text = destinationSearchQuery, apiKey = geoapifyApiKey, limit = 1)
+                                        // First, geocode both addresses to get coordinates
+                                        val startResponse = geoapifyService.searchGeocode(
+                                            text = startSearchQuery,
+                                            apiKey = geoapifyApiKey
+                                        )
+                                        val endResponse = geoapifyService.searchGeocode(
+                                            text = destinationSearchQuery,
+                                            apiKey = geoapifyApiKey
+                                        )
 
-                                        val startPoint = startResult.features.firstOrNull()?.geometry?.coordinates?.let { GeoPoint(it[1], it[0]) }
-                                        val endPoint = endResult.features.firstOrNull()?.geometry?.coordinates?.let { GeoPoint(it[1], it[0]) }
+                                        val startFeature = startResponse.features.firstOrNull()
+                                        val endFeature = endResponse.features.firstOrNull()
 
-                                        if (startPoint != null && endPoint != null) {
-                                            // Try simple routing API first
-                                            try {
-                                                val waypoints = "${startPoint.latitude},${startPoint.longitude}|${endPoint.latitude},${endPoint.longitude}"
-                                                val routeResult = geoapifyService.getRoute(
+                                        if (startFeature != null && endFeature != null) {
+                                            val startLat = startFeature.properties.lat
+                                            val startLon = startFeature.properties.lon
+                                            val endLat = endFeature.properties.lat
+                                            val endLon = endFeature.properties.lon
+
+                                            if (startLat != null && startLon != null && endLat != null && endLon != null) {
+                                                val startPoint = GeoPoint(startLat, startLon)
+                                                val endPoint = GeoPoint(endLat, endLon)
+
+                                                // Now get the route
+                                                val waypoints = "$startLat,$startLon|$endLat,$endLon"
+                                                val routeResponse = geoapifyService.getRoute(
                                                     waypoints = waypoints,
                                                     mode = "drive",
                                                     apiKey = geoapifyApiKey
                                                 )
 
-                                                val routeFeature = routeResult.features.firstOrNull()
-                                                if (routeFeature != null && routeFeature.geometry.coordinates != null) {
-                                                    // Process and display the route
+                                                val routeFeature = routeResponse.features.firstOrNull()
+                                                if (routeFeature != null) {
+                                                    val geometry = routeFeature.geometry
+                                                    val coordinates = geometry.coordinates ?: emptyList()
+
                                                     displayRoute(
                                                         startPoint = startPoint,
                                                         endPoint = endPoint,
-                                                        geometry = routeFeature.geometry,
-                                                        rawCoords = routeFeature.geometry.coordinates ?: emptyList(),
+                                                        geometry = geometry,
+                                                        rawCoords = coordinates,
                                                         startAddress = startSearchQuery,
                                                         endAddress = destinationSearchQuery
                                                     )
                                                 } else {
-                                                    throw Exception("No route geometry found in API response")
-                                                }
-                                            } catch (e: Exception) {
-                                                Log.e("MedicalMapScreen", "Simple routing failed: ${e.message}. Falling back to route planner API", e)
-
-                                                // Fallback to route planner API
-                                                val routePlannerRequest = RoutePlannerRequest(
-                                                    mode = "drive",
-                                                    agents = listOf(
-                                                        RoutePlannerAgent(
-                                                            start_location = listOf(startPoint.longitude, startPoint.latitude),
-                                                            end_location = listOf(endPoint.longitude, endPoint.latitude),
-                                                            pickup_capacity = 4,
-                                                            name = "driver1"
-                                                        )
-                                                    ),
-                                                    jobs = listOf(
-                                                        RoutePlannerJob(
-                                                            id = "destination",
-                                                            location = listOf(endPoint.longitude, endPoint.latitude),
-                                                            duration = 300,
-                                                            pickup_amount = 1
-                                                        )
-                                                    )
-                                                )
-
-                                                val routePlannerResponse = geoapifyService.planComplexRoute(
-                                                    apiKey = geoapifyApiKey,
-                                                    body = routePlannerRequest
-                                                )
-
-                                                val plannerFeature = routePlannerResponse.features.firstOrNull()
-                                                if (plannerFeature != null && plannerFeature.geometry.coordinates != null) {
-                                                    displayRoute(
-                                                        startPoint = startPoint,
-                                                        endPoint = endPoint,
-                                                        geometry = plannerFeature.geometry,
-                                                        rawCoords = plannerFeature.geometry.coordinates ?: emptyList(),
-                                                        startAddress = startSearchQuery,
-                                                        endAddress = destinationSearchQuery
-                                                    )
-                                                } else {
-                                                    Log.e("MedicalMapScreen", "No route found with route planner API")
+                                                    Log.e("MedicalMapScreen", "No route found")
                                                 }
                                             }
-                                        } else {
-                                            Log.e("MedicalMapScreen", "Could not geocode start or end point")
                                         }
                                     } catch (e: Exception) {
-                                        Log.e("MedicalMapScreen", "Error during route search: ${e.message}", e)
+                                        Log.e("MedicalMapScreen", "Error finding route: ${e.message}", e)
                                     }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth() // Adjusted modifier
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Search Route")
                         }
@@ -863,60 +824,105 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                     .fillMaxWidth()
                     .clip(if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp))
             ) {
-                AndroidView(
-                    factory = { context ->
-                        MapView(context).apply {
-                            mapViewRef = this
-                            setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
-                            setMultiTouchControls(true)
-                            controller.setZoom(15.0)
-                            if (currentLocation != null) {
+                if (currentLocation != null) {
+                    AndroidView(
+                        factory = { context ->
+                            MapView(context).apply {
+                                mapViewRef = this
+                                setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
+                                setMultiTouchControls(true)
+                                controller.setZoom(normalZoomLevel)
                                 controller.setCenter(currentLocation)
                             }
-                        }
-                    },
-                    update = { mapView ->
-                        mapViewRef = mapView
-                        mapView.overlays.clear()
+                        },
+                        update = { mapView ->
+                            mapViewRef = mapView
+                            mapView.overlays.clear()
 
-                        // Add current location marker
-                        currentLocation?.let {
-                            val currentLocationMarker = Marker(mapView).apply {
-                                position = it
-                                title = "Current Location"
-                                icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                            // Add current location marker
+                            currentLocation?.let {
+                                val currentLocationMarker = Marker(mapView).apply {
+                                    position = it
+                                    title = "Your Location"
+                                    // Use the standard My Location icon and tint it
+                                    icon = ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_accessibility_24)?.apply {
+                                        setTint(ContextCompat.getColor(context, android.R.color.black))
+                                    }
+                                    // Anchor bottom center so the icon tip points to the location
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                    setOnMarkerClickListener { marker, _ ->
+                                        selectedLocationName = "Your Current Location"
+                                        true
+                                    }
+                                }
+                                mapView.overlays.add(currentLocationMarker)
+                                // Center and zoom map on current location
+                                mapView.controller.setCenter(it)
+                                mapView.controller.setZoom(normalZoomLevel)
                             }
-                            mapView.overlays.add(currentLocationMarker)
+
+                            // Add place markers
+                            placeMarkers.forEach { mapView.overlays.add(it) }
+
+                            // Add route polyline if it exists
+                            routePolyline?.let { mapView.overlays.add(it) }
+                            // Add start and end markers for the route if they exist
+                            startMarkerState?.let { mapView.overlays.add(it) }
+                            endMarkerState?.let { mapView.overlays.add(it) }
+
+                            mapView.invalidate()
                         }
-
-                        // Add place markers
-                        placeMarkers.forEach { mapView.overlays.add(it) }
-
-                        // Add route polyline if it exists
-                        routePolyline?.let { mapView.overlays.add(it) }
-                        // Add start and end markers for the route if they exist
-                        startMarkerState?.let { mapView.overlays.add(it) }
-                        endMarkerState?.let { mapView.overlays.add(it) }
-
-                        mapView.invalidate()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
                     }
-                )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(if (isFullscreen) 8.dp else 16.dp)
+                        .align(Alignment.TopStart)
+                ) {
+                    if (selectedLocationName.isNotEmpty()) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            elevation = CardDefaults.cardElevation(4.dp),
+                            modifier = Modifier.padding(top = if (isFullscreen) 48.dp else 8.dp)
+                        ) {
+                            Text(
+                                text = selectedLocationName,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
 
                 FloatingActionButton(
                     onClick = { isFullscreen = !isFullscreen },
                     modifier = Modifier
-                        .align(Alignment.TopEnd) // Respecting user's current Alignment.TopEnd
+                        .align(Alignment.TopEnd)
                         .padding(16.dp)
                 ) {
                     Icon(
-                        painter = androidx.compose.ui.res.painterResource(
+                        painter = painterResource(
                             id = if (isFullscreen)
-                                R.drawable.baseline_close_fullscreen_24
+                                com.example.daktarsaab.R.drawable.baseline_close_fullscreen_24
                             else
-                                R.drawable.baseline_open_in_full_24
+                                com.example.daktarsaab.R.drawable.baseline_open_in_full_24
                         ),
-                        contentDescription = if (isFullscreen) "Exit Fullscreen" else "Enter Fullscreen" // Added content description
+                        contentDescription = if (isFullscreen) "Exit Fullscreen" else "Enter Fullscreen"
                     )
                 }
             }
@@ -952,16 +958,32 @@ fun SearchField(
             value = query,
             onValueChange = onQueryChange,
             label = { Text(label) },
-            modifier = Modifier
-                .fillMaxWidth()
-            // .padding(8.dp) // Padding handled by parent Column
+            modifier = Modifier.fillMaxWidth(),
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            shape = MaterialTheme.shapes.medium,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedLeadingIconColor = MaterialTheme.colorScheme.primary,
+                unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         )
 
-        if (showSuggestions && suggestions.isNotEmpty()) { // Ensure suggestions list is not empty
-            ElevatedCard(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) { // Limit height of suggestions
+        if (showSuggestions && suggestions.isNotEmpty()) {
+            ElevatedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 200.dp),
+                shape = MaterialTheme.shapes.medium,
+            ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     suggestions.forEach { suggestion ->
                         SuggestionItem(
@@ -981,14 +1003,14 @@ fun SuggestionItem(suggestion: GeoapifyFeature, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp, horizontal = 8.dp), // Add padding within the Surface
-        color = MaterialTheme.colorScheme.surfaceVariant, // Use a subtle background color
-        shape = RoundedCornerShape(4.dp) // Add rounded corners
+            .padding(vertical = 4.dp, horizontal = 8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(4.dp)
     ) {
         Text(
             text = suggestion.properties.formatted,
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(8.dp) // Add padding to the text itself
+            modifier = Modifier.padding(8.dp)
         )
     }
 }
@@ -998,7 +1020,7 @@ fun CategorySelection(
     selectedCategory: String?,
     onCategorySelected: (String) -> Unit
 ) {
-    val categories = listOf("Hospitals", "Pharmacies", "Clinics", "Gas Stations")
+    val categories = listOf("Hospitals", "Pharmacies")
     val rowSize = 2 // Number of items per row
 
     Column(
@@ -1045,15 +1067,37 @@ private fun CategoryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    ElevatedButton(
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (isPressed) 0.95f else 1f)
+
+    FilledTonalButton(
         onClick = onClick,
-        modifier = modifier,
-        colors = ButtonDefaults.elevatedButtonColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-        )
+        modifier = modifier.scale(scale),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSecondaryContainer
+        ),
+        interactionSource = interactionSource
     ) {
-        Text(text = category) // Added Text element here
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = when (category) {
+                    "Hospitals" -> Icons.Default.LocalHospital
+                    "Pharmacies" -> Icons.Default.LocalPharmacy
+                    else -> Icons.Default.LocalHospital
+                },
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(text = category)
+        }
     }
 }
 

@@ -1,7 +1,7 @@
-
-package com.example.daktarsaab
+package com.example.daktarsaab.view
 
 import android.os.Bundle
+import android.util.Patterns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import kotlinx.coroutines.delay
 
@@ -36,14 +38,14 @@ class ForgotPasswordActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            DaktarSaabTheme {
+            DaktarSaabTheme(content = {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     ForgotPasswordScreen()
                 }
-            }
+            }, colorScheme = colorScheme)
         }
     }
 }
@@ -73,7 +75,7 @@ fun ForgotPasswordScreen() {
 
     // Email validation check
     val isEmailValid = remember(email) {
-        android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+        Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }
 
     LaunchedEffect(email) {
@@ -410,7 +412,7 @@ fun ForgotPasswordScreen() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ForgotPasswordScreenPreview() {
-    DaktarSaabTheme {
+    DaktarSaabTheme(content = {
         ForgotPasswordScreen()
-    }
+    }, colorScheme = colorScheme)
 }
