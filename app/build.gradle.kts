@@ -56,8 +56,11 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            // Removed redundant ORMLite exclusion if not specifically needed for packaging
-            // excludes += "com/j256/ormlite/core/README.txt"
+            // Exclude duplicate license files from mail libraries
+            excludes += "/META-INF/LICENSE.md"
+            excludes += "/META-INF/LICENSE.txt"
+            excludes += "/META-INF/NOTICE.md"
+            excludes += "/META-INF/NOTICE.txt"
         }
     }
 }
@@ -87,6 +90,10 @@ dependencies {
     implementation(libs.androidx.runtime.livedata)
 
     implementation(libs.material) // Added Material Components for Android
+
+    // JavaMail API for SMTP email sending
+    implementation("com.sun.mail:android-mail:1.6.7")
+    implementation("com.sun.mail:android-activation:1.6.7")
 
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.compose)

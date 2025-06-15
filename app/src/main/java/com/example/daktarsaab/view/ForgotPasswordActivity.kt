@@ -1,12 +1,11 @@
 package com.example.daktarsaab.view
 
+import android.content.Intent
 import android.os.Bundle
-import android.util.Patterns
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,404 +14,308 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
 import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
+import com.example.daktarsaab.viewmodel.ForgotPasswordViewModel
+import com.example.daktarsaab.viewmodel.ResetPasswordState
 import kotlinx.coroutines.delay
 
 class ForgotPasswordActivity : ComponentActivity() {
+    private lateinit var viewModel: ForgotPasswordViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize ViewModel
+        viewModel = ViewModelProvider(this)[ForgotPasswordViewModel::class.java]
+
         setContent {
-            DaktarSaabTheme(content = {
+            DaktarSaabTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ForgotPasswordScreen()
+                    SimpleForgotPasswordScreen(
+                        viewModel = viewModel,
+                        onBackClick = { finish() },
+                        onComplete = {
+                            val intent = Intent(this, LoginActivity::class.java)
+                            startActivity(intent)
+                            finish()
+                        }
+                    )
                 }
-            }, colorScheme = colorScheme)
+            }
         }
     }
 }
 
-@OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun ForgotPasswordScreen() {
+fun SimpleForgotPasswordScreen(
+    viewModel: ForgotPasswordViewModel,
+    onBackClick: () -> Unit,
+    onComplete: () -> Unit
+) {
+    val context = LocalContext.current
+
+    // Basic state
     var email by remember { mutableStateOf("") }
-    var currentStep by remember { mutableStateOf(1) }
     var otp by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var isCheckingEmail by remember { mutableStateOf(false) }
+    var currentStep by remember { mutableStateOf(1) } // 1: Email, 2: OTP, 3: Password
 
-    val titleVisible = remember { mutableStateOf(false) }
-    val subtitleVisible = remember { mutableStateOf(false) }
-    val formVisible = remember { mutableStateOf(false) }
-    val buttonVisible = remember { mutableStateOf(false) }
+    // Observe ViewModel state
+    val resetState by viewModel.resetState.observeAsState()
 
-    val otpBoxes = listOf(
-        remember { Animatable(0f) },
-        remember { Animatable(0f) },
-        remember { Animatable(0f) },
-        remember { Animatable(0f) }
-    )
-
-    // Email validation check
-    val isEmailValid = remember(email) {
-        Patterns.EMAIL_ADDRESS.matcher(email).matches()
-    }
-
-    LaunchedEffect(email) {
-        if (email.isNotBlank()) {
-            isCheckingEmail = true
-            delay(800) // Simulate network/validation delay
-            isCheckingEmail = false
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        delay(300)
-        titleVisible.value = true
-        delay(200)
-        subtitleVisible.value = true
-        delay(200)
-        formVisible.value = true
-        delay(200)
-        buttonVisible.value = true
-    }
-
-    LaunchedEffect(currentStep) {
-        if (currentStep == 2) {
-            otpBoxes.forEachIndexed { index, animatable ->
-                delay(index * 100L)
-                animatable.animateTo(
-                    targetValue = 1f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                )
+    // Handle state changes
+    LaunchedEffect(resetState) {
+        when (resetState) {
+            is ResetPasswordState.CodeSent -> {
+                Toast.makeText(context, "Verification code sent to your email", Toast.LENGTH_SHORT).show()
+                currentStep = 2
             }
+            is ResetPasswordState.CodeVerified -> {
+                Toast.makeText(context, "Code verified successfully", Toast.LENGTH_SHORT).show()
+                currentStep = 3
+            }
+            is ResetPasswordState.Success -> {
+                Toast.makeText(context, "Password reset successful!", Toast.LENGTH_SHORT).show()
+                delay(1000)
+                onComplete()
+            }
+            is ResetPasswordState.Error -> {
+                val errorMessage = (resetState as ResetPasswordState.Error).message
+                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+            }
+            else -> { /* Initial or loading state */ }
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
+            .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Icon(
-            imageVector = Icons.Default.ArrowBack,
-            contentDescription = "Back",
-            modifier = Modifier
-                .size(32.dp)
-                .clickable { /* Handle back navigation */ }
-                .padding(bottom = 16.dp)
+        // Top bar with back button
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier.padding(bottom = 16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = "Back"
+            )
+        }
+
+        // Title
+        Text(
+            text = when (currentStep) {
+                1 -> "Forgot Password"
+                2 -> "Enter Verification Code"
+                else -> "Create New Password"
+            },
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        AnimatedVisibility(
-            visible = titleVisible.value,
-            enter = fadeIn() + slideInVertically { -it },
-            exit = fadeOut() + slideOutVertically { -it }
-        ) {
-            Text(
-                text = when (currentStep) {
-                    1 -> "Forgot Password?"
-                    2 -> "Verify OTP"
-                    else -> "Reset Password"
-                },
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-
-        AnimatedVisibility(
-            visible = subtitleVisible.value,
-            enter = fadeIn() + slideInVertically { -it },
-            exit = fadeOut() + slideOutVertically { -it }
-        ) {
-            Text(
-                text = when (currentStep) {
-                    1 -> "Enter your email to receive a verification code"
-                    2 -> "We've sent a code to your email"
-                    else -> "Create a new password"
-                },
-                color = Color.Gray,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
-        }
-
-        AnimatedVisibility(
-            visible = formVisible.value,
-            enter = fadeIn() + slideInVertically { it / 2 },
-            exit = fadeOut() + slideOutVertically { it / 2 }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                when (currentStep) {
-                    1 -> {
-                        OutlinedTextField(
-                            value = email,
-                            onValueChange = { email = it },
-                            label = { Text("Email") },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.baseline_email_24),
-                                    contentDescription = null
-                                )
-                            },
-                            trailingIcon = {
-                                if (email.isNotBlank()) {
-                                    AnimatedContent(
-                                        targetState = isCheckingEmail to isEmailValid,
-                                        transitionSpec = {
-                                            if (targetState.first) {
-                                                // Loading state
-                                                fadeIn() with fadeOut()
-                                            } else {
-                                                // Transition between loading and validation states
-                                                if (targetState.second) {
-                                                    // Valid state
-                                                    scaleIn() + fadeIn() with scaleOut() + fadeOut()
-                                                } else {
-                                                    // Invalid state
-                                                    fadeIn() with fadeOut()
-                                                }
-                                            }
-                                        }
-                                    ) { (checking, valid) ->
-                                        when {
-                                            checking -> {
-                                                val infiniteTransition = rememberInfiniteTransition()
-                                                val rotation by infiniteTransition.animateFloat(
-                                                    initialValue = 0f,
-                                                    targetValue = 360f,
-                                                    animationSpec = infiniteRepeatable(
-                                                        animation = tween(1000, easing = LinearEasing),
-                                                        repeatMode = RepeatMode.Restart
-                                                    )
-                                                )
-
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier
-                                                        .size(24.dp)
-                                                        .rotate(rotation),
-                                                    strokeWidth = 2.dp,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-                                            valid -> {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.baseline_check_circle_24),
-                                                    contentDescription = "Valid Email",
-                                                    tint = Color.Green,
-                                                    modifier = Modifier.size(24.dp)
-                                                )
-                                            }
-                                            else -> {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.baseline_error_24),
-                                                    contentDescription = "Invalid Email",
-                                                    tint = Color.Red,
-                                                    modifier = Modifier.size(24.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        )
-                    }
-
-                    2 -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            otpBoxes.forEachIndexed { index, animatable ->
-                                val scale by animateFloatAsState(
-                                    targetValue = animatable.value,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessLow
-                                    )
-                                )
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .scale(scale)
-                                        .border(
-                                            width = 1.dp,
-                                            color = if (otp.length > index) Color.Blue else Color.Gray,
-                                            shape = MaterialTheme.shapes.small
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = if (otp.length > index) otp[index].toString() else "",
-                                        fontSize = 24.sp
-                                    )
-                                }
-                            }
-                        }
-
-                        TextField(
-                            value = otp,
-                            onValueChange = { if (it.length <= 4) otp = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(0.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Text(
-                                text = "Resend Code",
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.clickable { /* Resend OTP */ }
-                            )
-                        }
-                    }
-
-                    else -> {
-                        OutlinedTextField(
-                            value = newPassword,
-                            onValueChange = { newPassword = it },
-                            label = { Text("New Password") },
-                            modifier = Modifier.fillMaxWidth(),
-                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            trailingIcon = {
-                                Icon(
-                                    painter = painterResource(
-                                        id = if (passwordVisible)
-                                            R.drawable.baseline_visibility_off_24
-                                        else
-                                            R.drawable.baseline_visibility_24
-                                    ),
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                                    modifier = Modifier
-                                        .clickable { passwordVisible = !passwordVisible }
-                                        .padding(8.dp)
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.baseline_lock_24),
-                                    contentDescription = null
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                        )
-
-                        OutlinedTextField(
-                            value = confirmPassword,
-                            onValueChange = { confirmPassword = it },
-                            label = { Text("Confirm Password") },
-                            modifier = Modifier.fillMaxWidth(),
-                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.baseline_lock_24),
-                                    contentDescription = null
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        AnimatedVisibility(
-            visible = buttonVisible.value,
-            enter = fadeIn() + scaleIn(),
-            exit = fadeOut() + scaleOut()
-        ) {
-            Button(
-                onClick = {
-                    when (currentStep) {
-                        1 -> currentStep = 2
-                        2 -> currentStep = 3
-                        else -> { /* Complete password reset */ }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                enabled = when (currentStep) {
-                    1 -> email.isNotBlank() && isEmailValid && !isCheckingEmail
-                    2 -> otp.length == 4
-                    else -> newPassword.isNotBlank() && confirmPassword.isNotBlank() && newPassword == confirmPassword
-                }
-            ) {
+        // Form content based on current step
+        when (currentStep) {
+            // Email Entry
+            1 -> {
                 Text(
-                    text = when (currentStep) {
-                        1 -> "Send Code"
-                        2 -> "Verify"
-                        else -> "Reset Password"
-                    },
-                    fontSize = 16.sp
+                    text = "Enter your email address",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
-            }
-        }
 
-        if (currentStep == 1) {
-            Spacer(modifier = Modifier.height(16.dp))
-            AnimatedVisibility(
-                visible = buttonVisible.value,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    singleLine = true
+                )
+
+                Button(
+                    onClick = {
+                        if (email.isNotBlank()) {
+                            viewModel.sendVerificationCode(email)
+                        } else {
+                            Toast.makeText(context, "Please enter your email", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = email.isNotBlank()
+                ) {
+                    Text("Send Verification Code")
+                }
+            }
+
+            // OTP Verification
+            2 -> {
+                Text(
+                    text = "Enter the 4-digit verification code sent to your email",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                OutlinedTextField(
+                    value = otp,
+                    onValueChange = {
+                        // Only accept digits and limit to 4 characters
+                        if (it.all { c -> c.isDigit() } && it.length <= 4) {
+                            otp = it
+                        }
+                    },
+                    label = { Text("Verification Code") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+
+                Button(
+                    onClick = {
+                        if (otp.length == 4) {
+                            viewModel.verifyCode(otp)
+                        } else {
+                            Toast.makeText(context, "Please enter the complete 4-digit code", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = otp.length == 4
+                ) {
+                    Text("Verify Code")
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Text("Remember your password? ")
                     Text(
-                        text = "Log in",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { /* Navigate to login */ }
+                        text = "Didn't receive the code? ",
+                        fontSize = 14.sp
                     )
+                    Text(
+                        text = "Resend",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable {
+                            viewModel.resendVerificationCode()
+                        }
+                    )
+                }
+            }
+
+            // New Password
+            else -> {
+                Text(
+                    text = "Create a new password",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // New password field
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = { Text("New Password") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                painter = painterResource(
+                                    id = if (passwordVisible) R.drawable.baseline_visibility_off_24
+                                    else R.drawable.baseline_visibility_24
+                                ),
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            )
+                        }
+                    },
+                    singleLine = true
+                )
+
+                // Confirm password field
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text("Confirm Password") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    singleLine = true
+                )
+
+                if (newPassword.isNotBlank() && confirmPassword.isNotBlank() &&
+                    newPassword != confirmPassword) {
+                    Text(
+                        text = "Passwords don't match",
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        when {
+                            newPassword.length < 6 -> {
+                                Toast.makeText(context, "Password must be at least 6 characters", Toast.LENGTH_SHORT).show()
+                            }
+                            newPassword != confirmPassword -> {
+                                Toast.makeText(context, "Passwords don't match", Toast.LENGTH_SHORT).show()
+                            }
+                            else -> {
+                                viewModel.resetPassword(newPassword)
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = newPassword.isNotBlank() && confirmPassword.isNotBlank() &&
+                            newPassword == confirmPassword && newPassword.length >= 6
+                ) {
+                    Text("Reset Password")
                 }
             }
         }
     }
-}
 
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun ForgotPasswordScreenPreview() {
-    DaktarSaabTheme(content = {
-        ForgotPasswordScreen()
-    }, colorScheme = colorScheme)
+    // Loading overlay
+    if (resetState is ResetPasswordState.Loading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    }
 }
