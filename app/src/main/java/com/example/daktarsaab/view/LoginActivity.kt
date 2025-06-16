@@ -1,8 +1,9 @@
 package com.example.daktarsaab.view
+
 import android.content.Intent
 import android.os.Bundle
-import android.util.Patterns
 import android.util.Log
+import android.util.Patterns
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -43,55 +44,22 @@ import androidx.lifecycle.ViewModelProvider
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
-import com.example.daktarsaab.view.DashboardActivity
 import com.example.daktarsaab.viewmodel.LoginState
 import com.example.daktarsaab.viewmodel.LoginViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 
 class LoginActivity : ComponentActivity() {
     private lateinit var viewModel: LoginViewModel
-
-    // Google Sign-In client
-    private lateinit var googleSignInClient: GoogleSignInClient
-
-    // Activity Result Launcher for Google Sign-In
-    private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
+    private val TAG = "LoginActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Initialize the LoginViewModel
         viewModel = ViewModelProvider(this)[LoginViewModel::class.java]
-
-        // Configure Google Sign-In
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id))
-            .requestEmail()
-            .requestProfile()  // Also request profile information
-            .build()
-
-        googleSignInClient = GoogleSignIn.getClient(this, gso)
-
-        // Initialize the Activity Result Launcher for Google Sign-In
-        googleSignInLauncher = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            if (result.resultCode == RESULT_OK) {
-                // Handle the Google Sign-In result
-                viewModel.handleSignInResult(result.data)
-            } else {
-                // Google Sign-In was cancelled or failed
-                Log.e("LoginActivity", "Google sign-in cancelled with code: ${result.resultCode}")
-                Toast.makeText(this, "Google sign-in cancelled. Please try again.", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // Sign out any existing user to ensure login screen always shows
-        // FirebaseAuth.getInstance().signOut() - Removed this line to fix Google Sign-In issues
 
         val sharedPreferences = getSharedPreferences("app_prefs", MODE_PRIVATE)
         val isSplashShown: Boolean = false // Explicitly defined as Boolean type
@@ -128,17 +96,31 @@ class LoginActivity : ComponentActivity() {
                         // Observe login state to handle navigation
                         val loginState by viewModel.loginState.observeAsState()
 
+                        // Debug logging for login states
                         LaunchedEffect(loginState) {
                             when (loginState) {
+                                is LoginState.Loading -> {
+                                    Log.d(TAG, "Login state: Loading")
+                                }
                                 is LoginState.Success -> {
+                                    Log.d(TAG, "Login state: Success")
+                                    val user = (loginState as LoginState.Success).user
+                                    Log.d(TAG, "Logged in user: ${user.email}, ID: ${user.userId}")
+
                                     Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
                                     // Navigate to Dashboard
                                     val intent = Intent(context, DashboardActivity::class.java)
                                     context.startActivity(intent)
                                     finish() // Close LoginActivity
                                 }
-                                else -> {
-                                    // Do nothing for other states, they'll be handled in the LoginScreen
+                                is LoginState.Error -> {
+                                    val errorMsg = (loginState as LoginState.Error).message
+                                    if (errorMsg.isNotEmpty()) {
+                                        Log.d(TAG, "Login state: Error - $errorMsg")
+                                    }
+                                }
+                                null -> {
+                                    Log.d(TAG, "Login state: Initial null state")
                                 }
                             }
                         }
@@ -153,8 +135,8 @@ class LoginActivity : ComponentActivity() {
                                 context.startActivity(intent)
                             },
                             onGoogleSignInClick = {
-                                // Launch Google Sign-In
-                                launchGoogleSignIn()
+                                // Google Sign-In removed
+                                Toast.makeText(context, "Google Sign-In is not available", Toast.LENGTH_SHORT).show()
                             },
                             darkMode = darkMode,
                             onToggleDarkMode = { darkMode = !darkMode },
@@ -165,14 +147,9 @@ class LoginActivity : ComponentActivity() {
             }
         }
     }
-
-    // Function to launch Google Sign-In
-    private fun launchGoogleSignIn() {
-        val signInIntent = googleSignInClient.signInIntent
-        googleSignInLauncher.launch(signInIntent)
-    }
 }
 
+// Rest of the code remains the same (SplashScreen, LoginScreen, etc.)
 @Composable
 fun SplashScreen() {
     // Lottie animation setup
@@ -412,7 +389,7 @@ fun LoginScreen(
             Icon(
                 painter = painterResource(
                     id = if (darkMode) R.drawable.baseline_light_mode_24
-                         else R.drawable.baseline_dark_mode_24
+                    else R.drawable.baseline_dark_mode_24
                 ),
                 contentDescription = if (darkMode) "Switch to Light Mode" else "Switch to Dark Mode",
                 tint = Color.Unspecified,

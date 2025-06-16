@@ -53,6 +53,7 @@ class SignupViewModel : ViewModel() {
                                 phoneNumber = "", // Empty for now
                                 active = "true",
                                 email = email,
+                                password = password, // Add password to the UserModel
                                 f = firstName // Set f field to firstName for compatibility
                             )
 
@@ -126,4 +127,3 @@ sealed class SignupState {
     object VerificationPending : SignupState()
     object CheckingVerification : SignupState()
 }
-
