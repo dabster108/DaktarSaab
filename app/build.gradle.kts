@@ -30,7 +30,7 @@ android {
 
         // Expose GROQ_API_KEY from local.properties to BuildConfig
         val geoapifyApiKey = localProperties.getProperty("geoapify.apiKey") ?: ""
-        buildConfigField("String", "GEOAPIFY_API_KEY", "\\"\\"${geoapifyApiKey}\\"\\"")
+        buildConfigField("String", "GEOAPIFY_API_KEY", "\"${geoapifyApiKey}\"")
 
     }
 
