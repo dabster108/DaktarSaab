@@ -1,4 +1,4 @@
-//import java.util.Properties
+import java.util.Properties
 //
 plugins {
     alias(libs.plugins.android.application)
@@ -8,12 +8,12 @@ plugins {
 }
 
 // Read local.properties to get the API key
-//val localProperties = Properties().apply {
-//    val localFile = rootProject.file("local.properties")
-//    if (localFile.exists()) {
-//        localFile.inputStream().use { this.load(it) }
-//    }
-//}
+val localProperties = Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        localFile.inputStream().use { this.load(it) }
+    }
+}
 
 android {
     namespace = "com.example.daktarsaab"
@@ -29,6 +29,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Expose GROQ_API_KEY from local.properties to BuildConfig
+        val geoapifyApiKey = localProperties.getProperty("geoapify.apiKey") ?: ""
+        buildConfigField("String", "GEOAPIFY_API_KEY", "\\"\\"${geoapifyApiKey}\\"\\"")
 
     }
 
