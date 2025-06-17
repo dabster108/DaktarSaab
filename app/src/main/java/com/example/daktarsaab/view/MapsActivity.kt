@@ -1,6 +1,8 @@
 package com.example.daktarsaab.view
 
 import android.Manifest
+import android.app.Activity // Added for context.finish()
+import android.content.Context // Added for Context.MODE_PRIVATE
 import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
 import android.location.Location
@@ -20,14 +22,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.LocalPharmacy
+import androidx.compose.material.icons.filled.Person // Keep this for default icon
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.material3.MaterialTheme.colorScheme
+// import androidx.compose.material3.MaterialTheme.colorScheme // Not needed if using MaterialTheme.colorScheme directly
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.layout.ContentScale // Added for AsyncImage
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import coil.compose.AsyncImage
+import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.Dispatchers
@@ -282,86 +288,102 @@ interface GeoapifyService {
     }
 }
 
+
 class MapsActivity : ComponentActivity() {
 
-    private var permissionGrantedSignal by mutableStateOf(0L)
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        permissions.entries.forEach { entry ->
+            val permissionName = entry.key
+            val isGranted = entry.value
 
-    private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
             if (isGranted) {
-                Log.d("MapsActivity", "Permission GRANTED by user.")
-                permissionGrantedSignal = System.currentTimeMillis() // Update the signal
+                Log.d("MapsActivity", "$permissionName permission granted.")
             } else {
-                Log.d("MapsActivity", "Permission DENIED by user.")
-                // Handle permission denial (e.g., show a message to the user)
+                Log.d("MapsActivity", "$permissionName permission denied.")
             }
         }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Configuration.getInstance().userAgentValue = packageName
+        // Use Context.MODE_PRIVATE for SharedPreferences
+        Configuration.getInstance().load(this, getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+
+        val userName = intent.getStringExtra("USER_NAME")
+        val profileImageUrl = intent.getStringExtra("PROFILE_IMAGE_URL")
+        val isDarkTheme = intent.getBooleanExtra("IS_DARK_THEME", false)
+
         setContent {
-            DaktarSaabTheme(content = {
+            DaktarSaabTheme(darkTheme = isDarkTheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MedicalMapScreen(
+                        userName = userName,
+                        profileImageUrl = profileImageUrl,
                         onLocationPermissionRequested = {
                             Log.d("MapsActivity", "Requesting location permission via launcher.")
-                            requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                            requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) // Changed to pass an array
                         },
-                        permissionSignal = permissionGrantedSignal
+                        permissionSignal = 0L // This can be updated based on permission result if needed
                     )
                 }
-            }, colorScheme = colorScheme)
+                // Removed the standalone TopAppBar from here
+            }
         }
     }
 }
 
+// Remove MapScreenMode enum
+// enum class MapScreenMode {
+//     NEARBY_PLACES,
+//     SEARCH_RESULTS,
+//     ROUTE_OVERVIEW
+// }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal: Long) {
+fun MedicalMapScreen(
+    userName: String?,
+    profileImageUrl: String?,
+    onLocationPermissionRequested: () -> Unit,
+    permissionSignal: Long
+) {
     val context = LocalContext.current
+    val activity = LocalContext.current as? Activity // For finishing activity
     val coroutineScope = rememberCoroutineScope()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var currentLocation by remember { mutableStateOf<GeoPoint?>(null) }
     var selectedLocationName by remember { mutableStateOf("") }
-    // State for start and destination search fields
     var startSearchQuery by remember { mutableStateOf("") }
     var destinationSearchQuery by remember { mutableStateOf("") }
-
-    // State for suggestions
     var startSuggestions by remember { mutableStateOf(listOf<GeoapifyFeature>()) }
     var destinationSuggestions by remember { mutableStateOf(listOf<GeoapifyFeature>()) }
     var showStartSuggestions by remember { mutableStateOf(false) }
     var showDestinationSuggestions by remember { mutableStateOf(false) }
-
-    // State for route display
     var routePolyline by remember { mutableStateOf<Polyline?>(null) }
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
     var startMarkerState by remember { mutableStateOf<Marker?>(null) }
     var endMarkerState by remember { mutableStateOf<Marker?>(null) }
-
-    // State for fullscreen mode
     var isFullscreen by remember { mutableStateOf(false) }
-
-    // State for selected place category
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    // var selectedCategory by remember { mutableStateOf<String?>(null) } // Removed
     var placeMarkers by remember { mutableStateOf<List<Marker>>(emptyList()) }
-
-    // State for place details dialog
     var showPlaceDetailsDialog by remember { mutableStateOf(false) }
     var placeDetailsTitle by remember { mutableStateOf("") }
     var placeDetailsMessage by remember { mutableStateOf("") }
-
-    val geoapifyApiKey = "17f1b9b807bd49b6991ad029e5571cf1" // Updated API key
+    val geoapifyApiKey = "17f1b9b807bd49b6991ad029e5571cf1"
     var permissionCheckedInitially by remember { mutableStateOf(false) }
     var initialZoomDone by remember { mutableStateOf(false) }
-
     val normalZoomLevel = 15.0
-    val fullscreenZoomLevel = normalZoomLevel * 1.2 // 40% increase
-
+    val fullscreenZoomLevel = normalZoomLevel * 1.2
     val geoapifyService = remember { GeoapifyService.create() }
 
-    // Function to display route - Added to fix unresolved reference errors
+    // State for TopAppBar title
+    // var mapScreenMode by remember { mutableStateOf(MapScreenMode.NEARBY_PLACES) } // Removed, will simplify title
+    var currentMapTitle by remember { mutableStateOf("Maps") } // Simplified title
+
+
+    // Function to display route
     suspend fun displayRoute(
         startPoint: GeoPoint,
         endPoint: GeoPoint,
@@ -371,19 +393,15 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
         endAddress: String
     ) = withContext(Dispatchers.Main) {
         try {
-            // Clear any existing route
             mapViewRef?.let { mapView ->
                 routePolyline?.let { mapView.overlays.remove(it) }
                 startMarkerState?.let { mapView.overlays.remove(it) }
                 endMarkerState?.let { mapView.overlays.remove(it) }
             }
 
-            // Process route coordinates based on geometry type
             val routePoints = mutableListOf<GeoPoint>()
-
             when (geometry.type) {
                 "LineString" -> {
-                    // Format: [[lon1,lat1], [lon2,lat2], ...]
                     (rawCoords as? List<*>)?.forEach { point ->
                         (point as? List<*>)?.let {
                             if (it.size >= 2 && it[0] is Number && it[1] is Number) {
@@ -395,7 +413,6 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                     }
                 }
                 "MultiLineString" -> {
-                    // Format: [[[lon1,lat1], [lon2,lat2], ...], [...]]
                     (rawCoords as? List<*>)?.forEach { segment ->
                         (segment as? List<*>)?.forEach { point ->
                             (point as? List<*>)?.let {
@@ -411,43 +428,34 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
             }
 
             if (routePoints.size >= 2) {
-                // Create the route polyline
                 val polyline = Polyline().apply {
                     setPoints(routePoints)
-                    outlinePaint.color = AndroidColor.parseColor("#2196F3") // Blue color
+                    outlinePaint.color = AndroidColor.parseColor("#2196F3")
                     outlinePaint.strokeWidth = 10f
                 }
-
-                // Create start and end markers
                 val startMarker = Marker(mapViewRef).apply {
                     position = startPoint
                     title = "Start: $startAddress"
                     icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
-
                 val endMarker = Marker(mapViewRef).apply {
                     position = endPoint
                     title = "Destination: $endAddress"
                     icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_directions)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
-
-                // Add everything to map
                 mapViewRef?.overlays?.add(polyline)
                 mapViewRef?.overlays?.add(startMarker)
                 mapViewRef?.overlays?.add(endMarker)
-
-                // Save references
                 routePolyline = polyline
                 startMarkerState = startMarker
                 endMarkerState = endMarker
-
-                // Zoom to show the entire route
                 val boundingBox = BoundingBox.fromGeoPoints(routePoints)
                 mapViewRef?.zoomToBoundingBox(boundingBox.increaseByScale(1.2f), true, 100)
-
                 mapViewRef?.invalidate()
+                // mapScreenMode = MapScreenMode.ROUTE_OVERVIEW // Update screen mode - Removed
+                currentMapTitle = "Route Overview" // Update title directly
             } else {
                 Log.e("MedicalMapScreen", "Route has too few points to display")
             }
@@ -490,28 +498,25 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
 
     LaunchedEffect(mapViewRef, currentLocation) {
         if (mapViewRef != null && currentLocation != null && !initialZoomDone) {
-            mapViewRef?.controller?.setZoom(normalZoomLevel) // Use normalZoomLevel for initial zoom
+            mapViewRef?.controller?.setZoom(normalZoomLevel)
             mapViewRef?.controller?.setCenter(currentLocation)
             initialZoomDone = true
             Log.d("MedicalMapScreen", "Initial zoom to current location: $currentLocation at level $normalZoomLevel")
         }
     }
 
-    // Adjust zoom when fullscreen state changes
     LaunchedEffect(isFullscreen, mapViewRef, initialZoomDone) {
-        if (mapViewRef != null && initialZoomDone) { // Ensure map is ready and initial zoom has occurred
+        if (mapViewRef != null && initialZoomDone) {
             val targetZoom = if (isFullscreen) fullscreenZoomLevel else normalZoomLevel
             mapViewRef?.controller?.setZoom(targetZoom)
             Log.d("MedicalMapScreen", "Toggled fullscreen. Set zoom to $targetZoom. Is fullscreen: $isFullscreen")
         }
     }
 
-    LaunchedEffect(selectedCategory, currentLocation, mapViewRef) {
+    val selectedCategory = null
+    LaunchedEffect(selectedCategory, currentLocation, mapViewRef) { // Removed category-based place search
         if (selectedCategory == null || currentLocation == null || mapViewRef == null) return@LaunchedEffect
-
-        // Capture the non-null value of currentLocation for use in the coroutine
         val stableCurrentLocation = currentLocation
-
         coroutineScope.launch {
             try {
                 Log.d("MedicalMapScreen", "Loading places for category: $selectedCategory")
@@ -520,16 +525,12 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                     mapViewRef?.invalidate()
                 }
                 placeMarkers = emptyList()
-
                 val categoryMapping = mapOf(
                     "Hospitals" to "healthcare.hospital",
                     "Pharmacies" to "healthcare.pharmacy"
                 )
                 val geoCategory = categoryMapping[selectedCategory!!] ?: return@launch
-
-                // Use the stableCurrentLocation for constructing the filter, asserting non-null
-                val filter = "circle:${stableCurrentLocation!!.longitude},${stableCurrentLocation.latitude},5000" // 5km radius
-
+                val filter = "circle:${stableCurrentLocation!!.longitude},${stableCurrentLocation.latitude},5000"
                 val response = geoapifyService.searchPlaces(
                     categories = geoCategory,
                     filter = filter,
@@ -537,7 +538,6 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                     apiKey = geoapifyApiKey
                 )
                 Log.d("MedicalMapScreen", "Found ${response.features.size} places for $selectedCategory")
-
                 val newMarkers = response.features.mapNotNull { feature ->
                     val lat = feature.properties.lat
                     val lon = feature.properties.lon
@@ -547,26 +547,21 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                             position = GeoPoint(lat, lon)
                             title = name
                             snippet = feature.properties.address_line1 ?: feature.properties.formatted ?: "No address available"
-
-                            // Use different icons from R.drawable based on category
                             icon = when (selectedCategory) {
-                                "Hospitals" -> ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_local_hospital_24)?.apply {
-                                    setTint(ContextCompat.getColor(context, com.example.daktarsaab.R.color.hospital_color))
+                                "Hospitals" -> ContextCompat.getDrawable(context, R.drawable.baseline_local_hospital_24)?.apply {
+                                    setTint(ContextCompat.getColor(context, R.color.hospital_color))
                                 }
-                                "Pharmacies" -> ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_local_pharmacy_24)?.apply {
-                                    setTint(ContextCompat.getColor(context, com.example.daktarsaab.R.color.pharmacy_color))
+                                "Pharmacies" -> ContextCompat.getDrawable(context, R.drawable.baseline_local_pharmacy_24)?.apply {
+                                    setTint(ContextCompat.getColor(context, R.color.pharmacy_color))
                                 }
-                                else -> ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_accessibility_24)
-                            } ?: ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_accessibility_24)
-
+                                else -> ContextCompat.getDrawable(context, R.drawable.baseline_accessibility_24)
+                            } ?: ContextCompat.getDrawable(context, R.drawable.baseline_accessibility_24)
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                             id = feature.properties.place_id
-
-                            // Update to set the location name when marker is clicked
                             setOnMarkerClickListener { marker, _ ->
                                 selectedLocationName = marker.title
                                 coroutineScope.launch {
-                                    if (!isActive) return@launch // Avoid running in cancelled scope
+                                    if (!isActive) return@launch
                                     try {
                                         val placeId = marker.id
                                         if (placeId != null) {
@@ -576,7 +571,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                                                 placeDetailsTitle = details.name ?: "Place Details"
                                                 val addressInfo = details.formatted ?: details.address_line1 ?: "No address available"
                                                 val categoryInfo = details.categories?.joinToString(", ") ?: "No category information"
-                                                placeDetailsMessage = "Address: $addressInfo\nCategories: $categoryInfo"
+                                                placeDetailsMessage = "Address: $addressInfo\\nCategories: $categoryInfo"
                                                 showPlaceDetailsDialog = true
                                             } else {
                                                 placeDetailsTitle = "Place Details"
@@ -596,7 +591,6 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                         }
                     } else null
                 }
-
                 withContext(Dispatchers.Main) {
                     newMarkers.forEach { mapViewRef?.overlays?.add(it) }
                     if (newMarkers.isNotEmpty()) {
@@ -606,6 +600,8 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                     mapViewRef?.invalidate()
                 }
                 placeMarkers = newMarkers
+                // mapScreenMode = MapScreenMode.SEARCH_RESULTS // Update screen mode - Removed
+                currentMapTitle = selectedCategory ?: "Search Results" // Update title
             } catch (e: Exception) {
                 Log.e("MedicalMapScreen", "Error loading places: ${e.message}", e)
             }
@@ -621,44 +617,61 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Back Arrow Icon
-                            Icon(
-                                painter = painterResource(id = com.example.daktarsaab.R.drawable.baseline_arrow_left_24),
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(24.dp)
+                            // Icon( // Back arrow removed
+                            //     painter = painterResource(id = R.drawable.baseline_arrow_left_24),
+                            //     contentDescription = "Back",
+                            //     tint = MaterialTheme.colorScheme.onSurface,
+                            //     modifier = Modifier
+                            //         .size(24.dp)
+                            //         .clickable { activity?.finish() }
+                            // )
+                            Text( // Dynamic Title
+                                text = currentMapTitle, // Use simplified title state
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 16.dp) // Keep padding or adjust as needed
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            // Profile with name
+                            Spacer(modifier = Modifier.weight(1f))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f),
-                                horizontalArrangement = Arrangement.End
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(
-                                    painter = painterResource(id = com.example.daktarsaab.R.drawable.baseline_person_24),
-                                    contentDescription = "Profile",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.primaryContainer,
-                                            shape = CircleShape
-                                        )
-                                        .padding(8.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                if (!profileImageUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = profileImageUrl,
+                                        contentDescription = "Profile",
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Profile",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                                                CircleShape
+                                            )
+                                            .padding(6.dp)
+                                    )
+                                }
                                 Text(
-                                    text = "Dikshanta",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold
-                                    ),
+                                    text = userName ?: "User",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
             }
         }
@@ -705,9 +718,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                         },
                         showSuggestions = showStartSuggestions
                     )
-
                     Spacer(modifier = Modifier.height(8.dp))
-
                     SearchField(
                         query = destinationSearchQuery,
                         onQueryChange = {
@@ -736,19 +747,16 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                             destinationSearchQuery = feature.properties.formatted
                             destinationSuggestions = emptyList()
                             showDestinationSuggestions = false
+
                         },
                         showSuggestions = showDestinationSuggestions
                     )
-
-                    Spacer(modifier = Modifier.height(16.dp)) // Spacer before Search Route Button
-
-                    // Conditional Search Route Button
+                    Spacer(modifier = Modifier.height(16.dp))
                     if (startSearchQuery.isNotBlank() && destinationSearchQuery.isNotBlank()) {
                         Button(
                             onClick = {
                                 coroutineScope.launch {
                                     try {
-                                        // First, geocode both addresses to get coordinates
                                         val startResponse = geoapifyService.searchGeocode(
                                             text = startSearchQuery,
                                             apiKey = geoapifyApiKey
@@ -757,33 +765,26 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                                             text = destinationSearchQuery,
                                             apiKey = geoapifyApiKey
                                         )
-
                                         val startFeature = startResponse.features.firstOrNull()
                                         val endFeature = endResponse.features.firstOrNull()
-
                                         if (startFeature != null && endFeature != null) {
                                             val startLat = startFeature.properties.lat
                                             val startLon = startFeature.properties.lon
                                             val endLat = endFeature.properties.lat
                                             val endLon = endFeature.properties.lon
-
                                             if (startLat != null && startLon != null && endLat != null && endLon != null) {
                                                 val startPoint = GeoPoint(startLat, startLon)
                                                 val endPoint = GeoPoint(endLat, endLon)
-
-                                                // Now get the route
                                                 val waypoints = "$startLat,$startLon|$endLat,$endLon"
                                                 val routeResponse = geoapifyService.getRoute(
                                                     waypoints = waypoints,
                                                     mode = "drive",
                                                     apiKey = geoapifyApiKey
                                                 )
-
                                                 val routeFeature = routeResponse.features.firstOrNull()
                                                 if (routeFeature != null) {
                                                     val geometry = routeFeature.geometry
                                                     val coordinates = geometry.coordinates ?: emptyList()
-
                                                     displayRoute(
                                                         startPoint = startPoint,
                                                         endPoint = endPoint,
@@ -806,18 +807,18 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                         ) {
                             Text("Search Route")
                         }
-                        Spacer(modifier = Modifier.height(16.dp)) // Spacer after Search Route Button, before categories
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
-
-                    CategorySelection(
-                        selectedCategory = selectedCategory,
-                        onCategorySelected = { category ->
-                            selectedCategory = category
-                        }
-                    )
+                    // CategorySelection( // CategorySelection removed
+                    //     selectedCategory = selectedCategory,
+                    //     onCategorySelected = { category ->
+                    //         selectedCategory = category
+                    //         // mapScreenMode = MapScreenMode.SEARCH_RESULTS // Update mode when category selected - Removed
+                    //         currentMapTitle = category // Update title
+                    //     }
+                    // )
                 }
             }
-
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -838,17 +839,13 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                         update = { mapView ->
                             mapViewRef = mapView
                             mapView.overlays.clear()
-
-                            // Add current location marker
                             currentLocation?.let {
                                 val currentLocationMarker = Marker(mapView).apply {
                                     position = it
                                     title = "Your Location"
-                                    // Use the standard My Location icon and tint it
-                                    icon = ContextCompat.getDrawable(context, com.example.daktarsaab.R.drawable.baseline_accessibility_24)?.apply {
+                                    icon = ContextCompat.getDrawable(context, R.drawable.baseline_accessibility_24)?.apply {
                                         setTint(ContextCompat.getColor(context, android.R.color.black))
                                     }
-                                    // Anchor bottom center so the icon tip points to the location
                                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                                     setOnMarkerClickListener { marker, _ ->
                                         selectedLocationName = "Your Current Location"
@@ -856,33 +853,24 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                                     }
                                 }
                                 mapView.overlays.add(currentLocationMarker)
-                                // Center and zoom map on current location
                                 mapView.controller.setCenter(it)
                                 mapView.controller.setZoom(normalZoomLevel)
                             }
-
-                            // Add place markers
                             placeMarkers.forEach { mapView.overlays.add(it) }
-
-                            // Add route polyline if it exists
                             routePolyline?.let { mapView.overlays.add(it) }
-                            // Add start and end markers for the route if they exist
                             startMarkerState?.let { mapView.overlays.add(it) }
                             endMarkerState?.let { mapView.overlays.add(it) }
-
                             mapView.invalidate()
                         }
                     )
                 } else {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize(),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator()
                     }
                 }
-
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -908,7 +896,6 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                         }
                     }
                 }
-
                 FloatingActionButton(
                     onClick = { isFullscreen = !isFullscreen },
                     modifier = Modifier
@@ -918,17 +905,15 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                     Icon(
                         painter = painterResource(
                             id = if (isFullscreen)
-                                com.example.daktarsaab.R.drawable.baseline_close_fullscreen_24
+                                R.drawable.baseline_close_fullscreen_24
                             else
-                                com.example.daktarsaab.R.drawable.baseline_open_in_full_24
+                                R.drawable.baseline_open_in_full_24
                         ),
                         contentDescription = if (isFullscreen) "Exit Fullscreen" else "Enter Fullscreen"
                     )
                 }
             }
-        } // End of main Column
-
-        // AlertDialog for Place Details
+        }
         if (showPlaceDetailsDialog) {
             AlertDialog(
                 onDismissRequest = { showPlaceDetailsDialog = false },
@@ -941,7 +926,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
                 }
             )
         }
-    } // End of Scaffold content lambda
+    }
 }
 
 @Composable
@@ -974,7 +959,6 @@ fun SearchField(
                 unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
         )
-
         if (showSuggestions && suggestions.isNotEmpty()) {
             ElevatedCard(
                 modifier = Modifier
@@ -1015,88 +999,3 @@ fun SuggestionItem(suggestion: GeoapifyFeature, onClick: () -> Unit) {
     }
 }
 
-@Composable
-fun CategorySelection(
-    selectedCategory: String?,
-    onCategorySelected: (String) -> Unit
-) {
-    val categories = listOf("Hospitals", "Pharmacies")
-    val rowSize = 2 // Number of items per row
-
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = "Find Nearby:",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        // Display categories in rows with rowSize items per row
-        categories.chunked(rowSize).forEachIndexed { index, rowCategories ->
-            if (index > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                rowCategories.forEach { category ->
-                    CategoryButton(
-                        category = category,
-                        isSelected = selectedCategory == category,
-                        onClick = { onCategorySelected(category) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // Add placeholders for incomplete rows to maintain layout
-                repeat(rowSize - rowCategories.size) {
-                    Box(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CategoryButton(
-    category: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (isPressed) 0.95f else 1f)
-
-    FilledTonalButton(
-        onClick = onClick,
-        modifier = modifier.scale(scale),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                else MaterialTheme.colorScheme.onSecondaryContainer
-        ),
-        interactionSource = interactionSource
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = when (category) {
-                    "Hospitals" -> Icons.Default.LocalHospital
-                    "Pharmacies" -> Icons.Default.LocalPharmacy
-                    else -> Icons.Default.LocalHospital
-                },
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(text = category)
-        }
-    }
-}

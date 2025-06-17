@@ -1,5 +1,6 @@
 package com.example.daktarsaab.view
 
+import android.content.Context // Added import for Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -479,6 +480,7 @@ fun ServiceGrid() {
 fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
     val context = LocalContext.current
     val playLottieForever = title == "X-ray Scan"
+    val viewModel: DashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel() // Get ViewModel instance
 
     val composition by rememberLottieComposition(LottieCompositionSpec.Asset(assetName))
     val progress by animateLottieCompositionAsState(
@@ -503,7 +505,15 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
                             context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.SymptomAnalayzes")))
                         }
                         "Maps" -> {
-                            context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.MapsActivity")))
+                            val intent = Intent(context, Class.forName("com.example.daktarsaab.view.MapsActivity"))
+                            val user = viewModel.userData.value
+                            val profileUrl = viewModel.userProfileImageUrl.value
+                            intent.putExtra("USER_NAME", user?.firstName ?: "User")
+                            intent.putExtra("PROFILE_IMAGE_URL", profileUrl)
+                            // Pass the current theme state
+                            val prefs = context.getSharedPreferences("daktar_prefs", Context.MODE_PRIVATE) // Changed to Context.MODE_PRIVATE
+                            intent.putExtra("IS_DARK_THEME", prefs.getBoolean("dark_mode", false))
+                            context.startActivity(intent)
                         }
                         "Doctor Booking" -> {
                             context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.DoctorBookActivity")))
@@ -511,6 +521,7 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
                     }
                 } catch (e: Exception) {
                     // Handle class not found exception
+                    Log.e("ServiceCard", "Error starting activity for $title", e)
                 }
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
