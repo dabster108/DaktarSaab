@@ -759,7 +759,7 @@ fun DotsIndicator(
 @Preview(showBackground = true)
 @Composable
 fun EmergencyPreview() {
-    DaktarSaabTheme(content = {
+    DaktarSaabTheme {
         EmergencyCallScreen()
-    }, colorScheme = colorScheme)
+    }
 }

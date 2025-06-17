@@ -19,14 +19,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            DaktarSaabTheme(content = {
+            DaktarSaabTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Greeting(
                         name = "Android",
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
-            }, colorScheme = colorScheme)
+            }
         }
     }
 }
@@ -42,7 +42,7 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-    DaktarSaabTheme(content = {
+    DaktarSaabTheme {
         Greeting("Android")
-    }, colorScheme = colorScheme)
+    }
 }

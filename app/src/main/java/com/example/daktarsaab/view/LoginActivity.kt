@@ -610,18 +610,18 @@ private fun BlueCheckmark() {
 @Preview(showBackground = true, name = "Splash Screen Preview")
 @Composable
 fun SplashScreenPreview() {
-    DaktarSaabTheme(content = {
+    DaktarSaabTheme {
         SplashScreen()
-    }, colorScheme = colorScheme)
+    }
 }
 
 @Preview(showBackground = true, showSystemUi = true, name = "Login Screen Preview")
 @Composable
 fun LoginScreenPreview() {
-    DaktarSaabTheme(content = {
+    DaktarSaabTheme {
         LoginScreen(
             onForgotPasswordClick = {},
             onSignupClick = {}
         )
-    }, colorScheme = colorScheme)
+    }
 }

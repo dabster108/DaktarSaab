@@ -301,7 +301,7 @@ class MapsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Configuration.getInstance().userAgentValue = packageName
         setContent {
-            DaktarSaabTheme(content = {
+            DaktarSaabTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MedicalMapScreen(
                         onLocationPermissionRequested = {
@@ -311,7 +311,7 @@ class MapsActivity : ComponentActivity() {
                         permissionSignal = permissionGrantedSignal
                     )
                 }
-            }, colorScheme = colorScheme)
+            }
         }
     }
 }

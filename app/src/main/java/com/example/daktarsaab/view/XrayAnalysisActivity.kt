@@ -66,14 +66,14 @@ class XrayAnalysisActivity : ComponentActivity() {
 
 
         setContent {
-            com.example.daktarsaab.ui.theme.DaktarSaabTheme(content = {
+            com.example.daktarsaab.ui.theme.DaktarSaabTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     XrayAnalysisScreen()
                 }
-            }, colorScheme = colorScheme)
+            }
         }
     }
 }

@@ -64,14 +64,14 @@ class ReminderActivity : ComponentActivity() {
             }
         }
         setContent {
-            DaktarSaabTheme(content = {
+            DaktarSaabTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     ReminderScreen()
                 }
-            }, colorScheme = colorScheme)
+            }
         }
     }
 }

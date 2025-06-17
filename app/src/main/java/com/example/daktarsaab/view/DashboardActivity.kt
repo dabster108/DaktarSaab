@@ -164,7 +164,7 @@ fun DashboardScreen(
         }
     }
 
-    DaktarSaabTheme(darkTheme = isDarkTheme, content = {
+    DaktarSaabTheme(darkTheme = isDarkTheme) {
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -330,7 +330,7 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(16.dp)) // Add some space at the bottom for the navbar
             }
         }
-    }, colorScheme = colorScheme)
+    }
 }
 
 @Composable

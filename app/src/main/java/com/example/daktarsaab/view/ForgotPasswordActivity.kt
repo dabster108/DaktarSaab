@@ -38,14 +38,14 @@ class ForgotPasswordActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            DaktarSaabTheme(content = {
+            DaktarSaabTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     ForgotPasswordScreen()
                 }
-            }, colorScheme = colorScheme)
+            }
         }
     }
 }
@@ -412,7 +412,7 @@ fun ForgotPasswordScreen() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ForgotPasswordScreenPreview() {
-    DaktarSaabTheme(content = {
+    DaktarSaabTheme {
         ForgotPasswordScreen()
-    }, colorScheme = colorScheme)
+    }
 }
