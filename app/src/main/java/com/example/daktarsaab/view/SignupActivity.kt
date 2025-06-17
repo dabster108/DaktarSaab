@@ -449,7 +449,14 @@ fun SignupScreen(
                         }
 
                         // Call ViewModel to register user
-                        viewModel.registerUser(firstName, lastName, email, password)
+                        viewModel.registerUser(
+                            firstName = firstName,
+                            lastName = lastName,
+                            email = email,
+                            password = password,
+                            imageUri = selectedImageUri,
+                            context = context
+                        )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
