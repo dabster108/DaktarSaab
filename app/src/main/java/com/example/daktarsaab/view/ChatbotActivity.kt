@@ -571,7 +571,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
-                        label = { Text("Ask me anything") },
+                        label = { Text("Type Here") },
                         placeholder = { Text("Type your question...") },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(24.dp),
