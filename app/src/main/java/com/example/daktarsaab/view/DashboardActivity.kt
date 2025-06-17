@@ -313,9 +313,15 @@ fun DashboardScreen(
                         selected = false,
                         onClick = {
                             try {
-                                context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.ChatbotActivity")))
+                                val intent = Intent(context, Class.forName("com.example.daktarsaab.view.ChatbotActivity"))
+                                val user = viewModel.userData.value
+                                val profileUrl = viewModel.userProfileImageUrl.value
+                                intent.putExtra("USER_NAME", user?.firstName ?: "User") // Changed to pass only firstName
+                                intent.putExtra("PROFILE_IMAGE_URL", profileUrl)
+                                context.startActivity(intent)
                             } catch (e: Exception) {
                                 // Handle exception if class not found
+                                Log.e("DashboardScreen", "Error starting ChatbotActivity", e)
                             }
                         },
                         icon = {

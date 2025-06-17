@@ -12,7 +12,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -21,6 +20,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -42,6 +42,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Person
@@ -55,7 +57,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -79,19 +80,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil.compose.rememberAsyncImagePainter
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.daktarsaab.R
-import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -186,18 +188,27 @@ class ChatbotActivity : ComponentActivity() {
             }
         }
 
-        setContent {
-            // Move isSystemInDarkTheme() call inside the composable function
-            val isDarkTheme = isSystemInDarkTheme()
-            var darkMode by rememberSaveable { mutableStateOf(isDarkTheme) }
+        val userName = intent.getStringExtra("USER_NAME")
+        val profileImageUrl = intent.getStringExtra("PROFILE_IMAGE_URL")
 
-            DaktarSaabTheme(darkTheme = darkMode) {
+        // Read dark mode preference from SharedPreferences
+        val prefs = getSharedPreferences("daktar_prefs", MODE_PRIVATE)
+
+        setContent {
+            // Read the theme preference directly here.
+            // isSystemInDarkTheme() is a composable function, so it should be called within a composable scope.
+            val systemTheme = isSystemInDarkTheme()
+            val currentGlobalDarkMode = prefs.getBoolean("dark_mode", systemTheme)
+
+            DaktarSaabTheme(darkTheme = currentGlobalDarkMode) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     ChatScreen(
                         groqApiService = groqApiService,
                         textToSpeech = textToSpeech,
-                        darkMode = darkMode,
-                        onToggleDarkMode = { darkMode = !darkMode }
+                        darkMode = currentGlobalDarkMode, // Use theme from SharedPreferences
+                        onToggleDarkMode = { /* Theme is controlled by Dashboard and not changeable here */ }, // Made toggle non-functional
+                        userName = userName,
+                        profileImageUrl = profileImageUrl
                     )
                 }
             }
@@ -271,9 +282,16 @@ private val DarkColorScheme = darkColorScheme(
 // --- Composable Components ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, textToSpeech: TextToSpeech, darkMode: Boolean, onToggleDarkMode: () -> Unit) {
+fun ChatScreen(
+    modifier: Modifier = Modifier,
+    groqApiService: GroqApiService,
+    textToSpeech: TextToSpeech,
+    darkMode: Boolean,
+    onToggleDarkMode: () -> Unit,
+    userName: String?,
+    profileImageUrl: String?
+) {
     val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
     val systemPrompt = """
         You are MedGuide, an AI-powered medical assistant. You can answer health-related questions, provide general medical advice, and help users understand symptoms. Always remind users that your advice does not replace a real doctor's consultation. Be empathetic, concise, and clear. If a question is outside your scope, suggest seeing a healthcare professional.
     """.trimIndent()
@@ -374,7 +392,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
     LaunchedEffect(Unit) {
         if (messages.isEmpty()) {
             messages.add(GroqMessage(role = "system", content = systemPrompt))
-            messages.add(GroqMessage(role = "assistant", content = "Hello! I'm MedGuide, your AI medical assistant. How can I help you today?"))
+            messages.add(GroqMessage(role = "assistant", content = "Hello! I'm DaktarSaab Medguide, your AI medical assistant. How can I help you today?"))
         }
 
         textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -430,12 +448,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Left side with back button
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_arrow_left_24),
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
+
 
                         Spacer(modifier = Modifier.weight(1f))
 
@@ -466,21 +479,33 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                             Row(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Profile",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(
-                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-                                            CircleShape
-                                        )
-                                        .padding(6.dp)
-                                )
+                                if (!profileImageUrl.isNullOrBlank()) {
+                                    Image(
+                                        painter = rememberAsyncImagePainter(model = profileImageUrl),
+                                        contentDescription = "Profile",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Profile",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(
+                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                                                CircleShape
+                                            )
+                                            .padding(6.dp)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Dikshanta",
+                                    text = userName ?: "User", // Display dynamic username or "User" if null
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
@@ -571,20 +596,20 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
-                        label = { Text("Type Here") },
-                        placeholder = { Text("Type your question...") },
+                        label = { Text("Ask AI") },
+                        placeholder = { Text("Type here") },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(24.dp),
                         colors = TextFieldDefaults.colors(
-                            focusedIndicatorColor = MaterialTheme.colorScheme.primary, // Changed from focusedBorderColor
-                            unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), // Changed from unfocusedBorderColor
-                            cursorColor = MaterialTheme.colorScheme.primary,
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            focusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            focusedIndicatorColor = MaterialTheme.colorScheme.primary, // Keep MaterialTheme qualifier
+                            unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), // Keep MaterialTheme qualifier
+                            cursorColor = MaterialTheme.colorScheme.primary, // Keep MaterialTheme qualifier
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface, // Keep MaterialTheme qualifier
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface, // Keep MaterialTheme qualifier
+                            focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant, // Keep MaterialTheme qualifier
+                            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant, // Keep MaterialTheme qualifier
+                            focusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant, // Keep MaterialTheme qualifier
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant // Keep MaterialTheme qualifier
                         )
                     )
 
@@ -603,15 +628,16 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.tertiaryContainer),
+                            .background(MaterialTheme.colorScheme.tertiaryContainer), // Keep MaterialTheme qualifier
                         enabled = !isLoading
                     ) {
                         Icon(
                             Icons.Default.Mic,
                             contentDescription = "Speak",
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer // Keep MaterialTheme qualifier
                         )
                     }
+
                     Spacer(modifier = Modifier.width(8.dp))
 
                     // Clear button
@@ -620,15 +646,16 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.secondaryContainer),
+                            .background(MaterialTheme.colorScheme.secondaryContainer), // Keep MaterialTheme qualifier
                         enabled = !isLoading
                     ) {
                         Icon(
                             Icons.Default.Clear,
                             contentDescription = "Clear Chat",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer // Keep MaterialTheme qualifier
                         )
                     }
+
                     Spacer(modifier = Modifier.width(8.dp))
 
                     // Send button
@@ -639,13 +666,13 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
+                            .background(MaterialTheme.colorScheme.primary), // Keep MaterialTheme qualifier
                         enabled = inputText.isNotBlank() && !isLoading
                     ) {
                         Icon(
-                            Icons.Default.Send,
+                            Icons.AutoMirrored.Filled.Send, // Updated to AutoMirrored version
                             contentDescription = "Send",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = MaterialTheme.colorScheme.onPrimary // Keep MaterialTheme qualifier
                         )
                     }
                 }
@@ -670,7 +697,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                     Text(
                         text = "DaktarSaab Chatbot",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface // Keep MaterialTheme qualifier
                     )
                 }
             }
@@ -681,8 +708,8 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
 @Composable
 fun MessageBubble(message: GroqMessage, onSpeakClick: (String) -> Unit, onStopClick: () -> Unit, isSpeaking: Boolean) {
     val isUser = message.role == "user"
-    val bubbleColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val textColor = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val bubbleColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant // Keep MaterialTheme qualifier
+    val textColor = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface // Keep MaterialTheme qualifier
 
     // Lottie Animation for AI
     val robotComposition by rememberLottieComposition(LottieCompositionSpec.Asset("robot.json"))
@@ -742,9 +769,9 @@ fun MessageBubble(message: GroqMessage, onSpeakClick: (String) -> Unit, onStopCl
                         }
                     }) {
                         Icon(
-                            imageVector = if (isSpeaking) Icons.Default.Stop else Icons.Default.VolumeUp,
+                            imageVector = if (isSpeaking) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp, // Updated to AutoMirrored version
                             contentDescription = if (isSpeaking) "Stop Speaking" else "Speak Message",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant // Keep MaterialTheme qualifier
                         )
                     }
                 }
@@ -759,11 +786,11 @@ fun MessageBubble(message: GroqMessage, onSpeakClick: (String) -> Unit, onStopCl
                 modifier = Modifier
                     .size(48.dp)
                     .background(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f), // Keep MaterialTheme qualifier
                         CircleShape
                     )
                     .padding(6.dp),
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.primary // Keep MaterialTheme qualifier
             )
         }
     }
@@ -775,14 +802,14 @@ fun DaktarSaabTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) {
+    val colorScheme = if (darkTheme) { // Renamed from colorScheme to avoid conflict
         DarkColorScheme
     } else {
         LightColorScheme
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = colorScheme, // Use the local colorScheme variable
         typography = MaterialTheme.typography,
         content = content
     )
@@ -837,7 +864,9 @@ fun ChatPreview() {
                 }
             },
             darkMode = false,
-            onToggleDarkMode = {}
+            onToggleDarkMode = {},
+            userName = "Dikshanta Preview",
+            profileImageUrl = null // You can put a test image URL here for preview
         )
     }
 }
