@@ -28,12 +28,10 @@
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
-
             <data android:scheme="geo" />
         </intent>
         <intent>
             <action android:name="android.intent.action.DIAL" />
-
             <data android:scheme="tel" />
         </intent>
     </queries>
@@ -51,6 +49,7 @@
         tools:replace="android:allowBackup"
         tools:targetApi="31">
 <<<<<<< HEAD
+<<<<<<< HEAD
         <activity
             android:name=".DoctorBooking"
             android:exported="true"
@@ -64,61 +63,51 @@
         </activity>
 =======
 >>>>>>> 20a123741e00a284c15467acfc8c1f83aec4ec4c
+=======
+
+        <!-- Only LoginActivity should have the LAUNCHER category as the main entry point -->
+        <activity
+            android:name=".view.LoginActivity"
+            android:exported="true"
+            android:label="@string/title_activity_login"
+            android:theme="@style/Theme.DaktarSaab">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Other activities without LAUNCHER category -->
+>>>>>>> ba5cdf5c56fa98ac9a1f45106d14294b2a2aa12c
         <activity
             android:name=".view.DoctorBookActivity"
             android:exported="true"
             android:label="@string/title_activity_doctor_book"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:theme="@style/Theme.DaktarSaab" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <activity
             android:name=".view.DashboardActivity"
             android:exported="true"
             android:label="@string/title_activity_dashboard"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:theme="@style/Theme.DaktarSaab" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <activity
             android:name=".view.XrayAnalysisActivity"
             android:exported="true"
             android:label="@string/title_activity_xray_analysis"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:theme="@style/Theme.DaktarSaab" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <activity
             android:name=".view.SymptomAnalayzes"
             android:exported="true"
             android:label="@string/title_activity_symptom_analayzes"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:theme="@style/Theme.DaktarSaab" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <activity
             android:name=".view.EmergencyCallActivity"
             android:exported="true"
             android:label="@string/title_activity_emergency_call"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:theme="@style/Theme.DaktarSaab" />
 
         <receiver
             android:name=".ReminderBroadcastReceiver"
@@ -128,79 +117,37 @@
             android:name=".view.ReminderActivity"
             android:exported="true"
             android:label="@string/title_activity_reminder"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:theme="@style/Theme.DaktarSaab" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <activity
             android:name=".view.ChatbotActivity"
             android:exported="true"
             android:label="@string/title_activity_chatbot"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:theme="@style/Theme.DaktarSaab" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <activity
             android:name=".view.MapsActivity"
             android:exported="true"
             android:label="@string/title_activity_maps"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:theme="@style/Theme.DaktarSaab" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <activity
             android:name=".view.ForgotPasswordActivity"
             android:exported="true"
             android:label="@string/title_activity_forgot_password"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:theme="@style/Theme.DaktarSaab" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <activity
             android:name=".view.SignupActivity"
             android:exported="true"
             android:label="@string/title_activity_signup"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:theme="@style/Theme.DaktarSaab" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity
-            android:name=".view.LoginActivity"
-            android:exported="true"
-            android:label="@string/title_activity_login"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <activity
             android:name=".view.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.DaktarSaab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:theme="@style/Theme.DaktarSaab" />
     </application>
 
 </manifest>

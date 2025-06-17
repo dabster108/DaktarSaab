@@ -1,9 +1,14 @@
 package com.example.daktarsaab.view
+
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.util.Patterns
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -18,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,17 +40,32 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
+import com.example.daktarsaab.viewmodel.LoginState
+import com.example.daktarsaab.viewmodel.LoginViewModel
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import kotlinx.coroutines.delay
 
 class LoginActivity : ComponentActivity() {
+    private lateinit var viewModel: LoginViewModel
+    private val TAG = "LoginActivity"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Initialize the LoginViewModel
+        viewModel = ViewModelProvider(this)[LoginViewModel::class.java]
+
         val sharedPreferences = getSharedPreferences("app_prefs", MODE_PRIVATE)
-        val isSplashShown = false // Ensures splash shows on every fresh activity creation
+        val isSplashShown: Boolean = false // Explicitly defined as Boolean type
+
+        // Check if we're resuming after a sign-in attempt
+        viewModel.checkLoggedInUser()
 
         setContent {
             // Move isSystemInDarkTheme() and theme state inside the composable scope
@@ -65,12 +86,45 @@ class LoginActivity : ComponentActivity() {
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = colorScheme.background
                 ) {
                     if (showSplash) {
                         SplashScreen()
                     } else {
                         val context = LocalContext.current
+
+                        // Observe login state to handle navigation
+                        val loginState by viewModel.loginState.observeAsState()
+
+                        // Debug logging for login states
+                        LaunchedEffect(loginState) {
+                            when (loginState) {
+                                is LoginState.Loading -> {
+                                    Log.d(TAG, "Login state: Loading")
+                                }
+                                is LoginState.Success -> {
+                                    Log.d(TAG, "Login state: Success")
+                                    val user = (loginState as LoginState.Success).user
+                                    Log.d(TAG, "Logged in user: ${user.email}, ID: ${user.userId}")
+
+                                    Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
+                                    // Navigate to Dashboard
+                                    val intent = Intent(context, DashboardActivity::class.java)
+                                    context.startActivity(intent)
+                                    finish() // Close LoginActivity
+                                }
+                                is LoginState.Error -> {
+                                    val errorMsg = (loginState as LoginState.Error).message
+                                    if (errorMsg.isNotEmpty()) {
+                                        Log.d(TAG, "Login state: Error - $errorMsg")
+                                    }
+                                }
+                                null -> {
+                                    Log.d(TAG, "Login state: Initial null state")
+                                }
+                            }
+                        }
+
                         LoginScreen(
                             onForgotPasswordClick = {
                                 val intent = Intent(context, ForgotPasswordActivity::class.java)
@@ -80,8 +134,13 @@ class LoginActivity : ComponentActivity() {
                                 val intent = Intent(context, SignupActivity::class.java)
                                 context.startActivity(intent)
                             },
+                            onGoogleSignInClick = {
+                                // Google Sign-In removed
+                                Toast.makeText(context, "Google Sign-In is not available", Toast.LENGTH_SHORT).show()
+                            },
                             darkMode = darkMode,
-                            onToggleDarkMode = { darkMode = !darkMode }
+                            onToggleDarkMode = { darkMode = !darkMode },
+                            viewModel = viewModel
                         )
                     }
                 }
@@ -90,6 +149,7 @@ class LoginActivity : ComponentActivity() {
     }
 }
 
+// Rest of the code remains the same (SplashScreen, LoginScreen, etc.)
 @Composable
 fun SplashScreen() {
     // Lottie animation setup
@@ -156,7 +216,7 @@ fun SplashScreen() {
                         text = welcomeText,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        color = colorScheme.onSurface.copy(alpha = 0.8f),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -175,7 +235,7 @@ fun SplashScreen() {
                         text = appNameLine1,
                         fontSize = 38.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = colorScheme.primary,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -194,7 +254,7 @@ fun SplashScreen() {
                         text = appNameLine2,
                         fontSize = 38.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = colorScheme.primary,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -211,8 +271,10 @@ private fun Dp.roundToPx(): Int {return this.value.toInt()}
 fun LoginScreen(
     onForgotPasswordClick: () -> Unit,
     onSignupClick: () -> Unit,
+    onGoogleSignInClick: () -> Unit,
     darkMode: Boolean = isSystemInDarkTheme(),
-    onToggleDarkMode: () -> Unit = {}
+    onToggleDarkMode: () -> Unit = {},
+    viewModel: LoginViewModel? = null
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -221,6 +283,42 @@ fun LoginScreen(
     var isCheckingEmail by remember { mutableStateOf(false) }
     var isPasswordLocked by remember { mutableStateOf(false) }
     var lastPasswordEdit by remember { mutableStateOf(0L) }
+
+    // State to track login status
+    var isLoggingIn by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Remove the showErrorDialog state since we're showing inline errors now
+
+    // Observe login state
+    if (viewModel != null) {
+        val loginState by viewModel.loginState.observeAsState()
+
+        LaunchedEffect(loginState) {
+            when (loginState) {
+                is LoginState.Loading -> {
+                    isLoggingIn = true
+                    errorMessage = null
+                }
+                is LoginState.Success -> {
+                    isLoggingIn = false
+                    errorMessage = null
+                    // Navigation is handled in the Activity
+                }
+                is LoginState.Error -> {
+                    isLoggingIn = false
+                    errorMessage = (loginState as LoginState.Error).message
+                }
+                else -> {
+                    // Initial state
+                    isLoggingIn = false
+                    errorMessage = null
+                }
+            }
+        }
+    }
+
+    // Remove the error dialog since we're showing inline errors now
 
     val animatedFullText = "Welcome back! Please enter your details."
     val defaultText = "Welcome to Daktar Sab App"
@@ -291,7 +389,7 @@ fun LoginScreen(
             Icon(
                 painter = painterResource(
                     id = if (darkMode) R.drawable.baseline_light_mode_24
-                         else R.drawable.baseline_dark_mode_24
+                    else R.drawable.baseline_dark_mode_24
                 ),
                 contentDescription = if (darkMode) "Switch to Light Mode" else "Switch to Dark Mode",
                 tint = Color.Unspecified,
@@ -344,10 +442,17 @@ fun LoginScreen(
                 Column {
                     OutlinedTextField(
                         value = email,
-                        onValueChange = { email = it },
+                        onValueChange = {
+                            email = it
+                            // Clear error message when user types
+                            if (errorMessage?.contains("not registered", ignoreCase = true) == true) {
+                                errorMessage = null
+                            }
+                        },
                         label = { Text("Email") },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        isError = errorMessage?.contains("not registered", ignoreCase = true) == true,
                         leadingIcon = {
                             Icon(
                                 painter = painterResource(id = R.drawable.baseline_email_24),
@@ -379,20 +484,37 @@ fun LoginScreen(
                             }
                         },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                            focusedBorderColor = colorScheme.primary,
+                            unfocusedBorderColor = colorScheme.outline,
+                            focusedLabelColor = colorScheme.primary,
+                            errorBorderColor = colorScheme.error,
+                            errorLabelColor = colorScheme.error
+                        ),
+                        supportingText = {
+                            if (errorMessage?.contains("not registered", ignoreCase = true) == true) {
+                                Text(
+                                    text = errorMessage ?: "",
+                                    color = colorScheme.error
+                                )
+                            }
+                        }
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedTextField(
                         value = password,
-                        onValueChange = { password = it },
+                        onValueChange = {
+                            password = it
+                            // Clear error message when user types
+                            if (errorMessage?.contains("Password incorrect", ignoreCase = true) == true) {
+                                errorMessage = null
+                            }
+                        },
                         label = { Text("Password") },
                         modifier = Modifier.fillMaxWidth(),
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        isError = errorMessage?.contains("Password incorrect", ignoreCase = true) == true,
                         trailingIcon = {
                             Icon(
                                 painter = painterResource(
@@ -423,19 +545,43 @@ fun LoginScreen(
                                 ),
                                 contentDescription = null,
                                 tint = if (isPasswordLocked && password.isNotBlank())
-                                    MaterialTheme.colorScheme.primary
+                                    colorScheme.primary
                                 else
-                                    MaterialTheme.colorScheme.onSurface,
+                                    colorScheme.onSurface,
                                 modifier = Modifier.scale(lockScale.value)
                             )
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                            focusedBorderColor = colorScheme.primary,
+                            unfocusedBorderColor = colorScheme.outline,
+                            focusedLabelColor = colorScheme.primary,
+                            errorBorderColor = colorScheme.error,
+                            errorLabelColor = colorScheme.error
+                        ),
+                        supportingText = {
+                            if (errorMessage?.contains("Password incorrect", ignoreCase = true) == true) {
+                                Text(
+                                    text = errorMessage ?: "",
+                                    color = colorScheme.error
+                                )
+                            }
+                        }
                     )
+
+                    // If there's an error message that's not about password or unregistered user,
+                    // show it as a general error message
+                    if (errorMessage != null &&
+                        !errorMessage!!.contains("Password incorrect", ignoreCase = true) &&
+                        !errorMessage!!.contains("not registered", ignoreCase = true)) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = errorMessage!!,
+                            color = colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -455,19 +601,19 @@ fun LoginScreen(
                                 checked = rememberMe,
                                 onCheckedChange = { rememberMe = it },
                                 colors = CheckboxDefaults.colors(
-                                    checkedColor = MaterialTheme.colorScheme.primary
+                                    checkedColor = colorScheme.primary
                                 )
                             )
                             Text(
                                 "Remember me",
                                 fontSize = 12.sp,  // Smaller text size
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                color = colorScheme.onSurface.copy(alpha = 0.7f)
                             )
                         }
 
                         Text(
                             text = "Forgot password?",
-                            color = MaterialTheme.colorScheme.primary,
+                            color = colorScheme.primary,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
                             modifier = Modifier
@@ -478,19 +624,52 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
+                    // Sign up button that appears when user is not registered
+                    AnimatedVisibility(
+                        visible = errorMessage?.contains("not registered", ignoreCase = true) == true,
+                        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 })
+                    ) {
+                        Button(
+                            onClick = onSignupClick,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorScheme.primary,
+                                contentColor = colorScheme.onPrimary
+                            )
+                        ) {
+                            Text("Sign Up Now", fontSize = 16.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
                     Button(
-                        onClick = { /* TODO: Implement login logic */ },
+                        onClick = {
+                            if (viewModel != null) {
+                                viewModel.loginUser(email, password)
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
-                        enabled = email.isNotBlank() && password.isNotBlank() && !isCheckingEmail && isEmailValid,
+                        enabled = !isLoggingIn && email.isNotBlank() && password.isNotBlank() && !isCheckingEmail && isEmailValid,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                            containerColor = colorScheme.primary,
+                            contentColor = colorScheme.onPrimary,
+                            disabledContainerColor = colorScheme.primary.copy(alpha = 0.5f)
                         )
                     ) {
-                        Text("Log In", fontSize = 16.sp)
+                        if (isLoggingIn) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Log In", fontSize = 16.sp)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -501,7 +680,7 @@ fun LoginScreen(
                     ) {
                         Divider(
                             modifier = Modifier.weight(1f),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                            color = colorScheme.outline.copy(alpha = 0.5f)
                         )
                         Text(
                             text = " Or log in with ",
@@ -509,20 +688,20 @@ fun LoginScreen(
                         )
                         Divider(
                             modifier = Modifier.weight(1f),
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                            color = colorScheme.outline.copy(alpha = 0.5f)
                         )
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
                     OutlinedButton(
-                        onClick = { /* TODO: Handle Google sign-in */ },
+                        onClick = onGoogleSignInClick,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
                         border = ButtonDefaults.outlinedButtonBorder,
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurface
+                            contentColor = colorScheme.onSurface
                         )
                     ) {
                         Row(
@@ -576,7 +755,7 @@ private fun LoadingCircle() {
         modifier = Modifier
             .size(24.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            .background(colorScheme.primary.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(
@@ -584,7 +763,7 @@ private fun LoadingCircle() {
                 .size(20.dp)
                 .rotate(rotation),
             strokeWidth = 2.dp,
-            color = MaterialTheme.colorScheme.primary
+            color = colorScheme.primary
         )
     }
 }
@@ -595,13 +774,13 @@ private fun BlueCheckmark() {
         modifier = Modifier
             .size(24.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            .background(colorScheme.primary.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             painter = painterResource(id = R.drawable.baseline_check_circle_24),
             contentDescription = "Valid Email",
-            tint = MaterialTheme.colorScheme.primary,
+            tint = colorScheme.primary,
             modifier = Modifier.size(16.dp)
         )
     }
@@ -621,7 +800,11 @@ fun LoginScreenPreview() {
     DaktarSaabTheme(content = {
         LoginScreen(
             onForgotPasswordClick = {},
-            onSignupClick = {}
+            onSignupClick = {},
+            onGoogleSignInClick = TODO(),
+            darkMode = TODO(),
+            onToggleDarkMode = TODO(),
+            viewModel = TODO()
         )
     }, colorScheme = colorScheme)
 }

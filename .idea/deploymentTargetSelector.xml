@@ -2,7 +2,7 @@
 <project version="4">
   <component name="deploymentTargetSelector">
     <selectionStates>
-      <SelectionState runConfigName="XrayAnalysisActivity">
+      <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
 <<<<<<< HEAD
         <DropdownSelection timestamp="2025-05-28T15:03:11.461995Z">
@@ -14,6 +14,7 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
+<<<<<<< HEAD
 <<<<<<< HEAD
       <SelectionState runConfigName="LoginActivity">
         <option name="selectionMode" value="DROPDOWN" />
@@ -54,6 +55,9 @@
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
       <SelectionState runConfigName="DashboardActivity (1)">
+=======
+      <SelectionState runConfigName="LoginActivity">
+>>>>>>> ba5cdf5c56fa98ac9a1f45106d14294b2a2aa12c
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
 >>>>>>> 20a123741e00a284c15467acfc8c1f83aec4ec4c

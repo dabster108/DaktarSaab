@@ -352,7 +352,7 @@ fun MedicalMapScreen(onLocationPermissionRequested: () -> Unit, permissionSignal
     var placeDetailsTitle by remember { mutableStateOf("") }
     var placeDetailsMessage by remember { mutableStateOf("") }
 
-    val geoapifyApiKey = "a2c1e9b8250045788fb3ff7389743ef3" // Hardcoded API key as requested
+    val geoapifyApiKey = "17f1b9b807bd49b6991ad029e5571cf1" // Updated API key
     var permissionCheckedInitially by remember { mutableStateOf(false) }
     var initialZoomDone by remember { mutableStateOf(false) }
 
@@ -1100,4 +1100,3 @@ private fun CategoryButton(
         }
     }
 }
-

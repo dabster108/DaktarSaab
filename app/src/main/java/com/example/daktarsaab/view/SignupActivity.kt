@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Patterns
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -22,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,19 +35,30 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import kotlinx.coroutines.delay
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
+import com.example.daktarsaab.viewmodel.SignupState
+import com.example.daktarsaab.viewmodel.SignupViewModel
 
 class SignupActivity : ComponentActivity() {
+
+    private lateinit var viewModel: SignupViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize ViewModel
+        viewModel = ViewModelProvider(this)[SignupViewModel::class.java]
+
         setContent {
             var darkMode by rememberSaveable { mutableStateOf(false) }
             val isSystemDark = isSystemInDarkTheme()
@@ -59,15 +72,46 @@ class SignupActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SignupScreen(
-                        onLoginClick = {
-                            val intent = Intent(this@SignupActivity, LoginActivity::class.java)
-                            startActivity(intent)
-                            finish()
-                        },
-                        darkMode = darkMode,
-                        onToggleDarkMode = { darkMode = !darkMode }
-                    )
+                    val signupState by viewModel.signupState.observeAsState()
+
+                    when (signupState) {
+                        is SignupState.VerificationSent,
+                        is SignupState.VerificationPending,
+                        is SignupState.CheckingVerification -> {
+                            EmailVerificationScreen(
+                                email = (signupState as? SignupState.VerificationSent)?.user?.email ?: "",
+                                onCheckVerification = { viewModel.checkEmailVerification() },
+                                verificationState = signupState,
+                                darkMode = darkMode
+                            )
+                        }
+                        is SignupState.VerificationComplete -> {
+                            VerificationCompleteScreen(
+                                onContinue = {
+                                    // Navigate to login screen
+                                    val intent = Intent(this@SignupActivity, LoginActivity::class.java)
+                                    startActivity(intent)
+                                    finish()
+                                },
+                                darkMode = darkMode
+                            )
+                        }
+                        else -> {
+                            SignupScreen(
+                                onLoginClick = {
+                                    val intent = Intent(this@SignupActivity, LoginActivity::class.java)
+                                    startActivity(intent)
+                                    finish()
+                                },
+                                darkMode = darkMode,
+                                onToggleDarkMode = { darkMode = !darkMode },
+                                viewModel = viewModel,
+                                onSignupSuccess = {
+                                    // This callback is not used anymore since we're showing verification screen
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -79,7 +123,9 @@ class SignupActivity : ComponentActivity() {
 fun SignupScreen(
     onLoginClick: () -> Unit,
     darkMode: Boolean,
-    onToggleDarkMode: () -> Unit
+    onToggleDarkMode: () -> Unit,
+    viewModel: SignupViewModel,
+    onSignupSuccess: () -> Unit
 ) {
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
@@ -90,13 +136,41 @@ fun SignupScreen(
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var isCheckingEmail by remember { mutableStateOf(false) }
 
+    // State to track the signup button loading
+    var isSigningUp by remember { mutableStateOf(false) }
+
+    // Observe the signup state from ViewModel
+    val signupState by viewModel.signupState.observeAsState()
+    val context = LocalContext.current
+
+    // Handle signup state changes
+    LaunchedEffect(signupState) {
+        when (signupState) {
+            is SignupState.Loading -> {
+                isSigningUp = true
+            }
+            is SignupState.Success -> {
+                isSigningUp = false
+                Toast.makeText(context, "Signup successful!", Toast.LENGTH_SHORT).show()
+                onSignupSuccess()
+            }
+            is SignupState.Error -> {
+                isSigningUp = false
+                val errorMessage = (signupState as SignupState.Error).message
+                Toast.makeText(context, "Error: $errorMessage", Toast.LENGTH_LONG).show()
+            }
+            else -> {
+                // Initial state, do nothing
+            }
+        }
+    }
+
     val isEmailValid = remember(email) {
         Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var isImageUploaded by remember { mutableStateOf(false) }
-    val context = LocalContext.current
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -367,7 +441,16 @@ fun SignupScreen(
                 exit = fadeOut()
             ) {
                 Button(
-                    onClick = { /* Handle sign up */ },
+                    onClick = {
+                        // Validate fields
+                        if (password != confirmPassword) {
+                            Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+
+                        // Call ViewModel to register user
+                        viewModel.registerUser(firstName, lastName, email, password)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
@@ -375,14 +458,23 @@ fun SignupScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    enabled = firstName.isNotBlank() &&
-                            lastName.isNotBlank() &&
-                            email.isNotBlank() &&
-                            password.isNotBlank() &&
-                            confirmPassword.isNotBlank() &&
-                            password == confirmPassword
+                    enabled = !isSigningUp &&
+                             firstName.isNotBlank() &&
+                             lastName.isNotBlank() &&
+                             email.isNotBlank() &&
+                             password.isNotBlank() &&
+                             confirmPassword.isNotBlank() &&
+                             password == confirmPassword
                 ) {
-                    Text("Sign Up", fontSize = 16.sp)
+                    if (isSigningUp) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Sign Up", fontSize = 16.sp)
+                    }
                 }
             }
 
@@ -457,10 +549,167 @@ private fun BlueCheckmark() {
     }
 }
 
+@Composable
+fun EmailVerificationScreen(
+    email: String,
+    onCheckVerification: () -> Unit,
+    verificationState: SignupState?,
+    darkMode: Boolean
+) {
+    val isChecking = verificationState is SignupState.CheckingVerification
+    val emailToShow = if (email.isBlank()) "your email" else email
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Email verification animation
+        val composition by rememberLottieComposition(LottieCompositionSpec.Asset("email_verification.json"))
+        val progress by animateLottieCompositionAsState(
+            composition = composition,
+            iterations = LottieConstants.IterateForever
+        )
+
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.size(250.dp)
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "Verify Your Email",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "We've sent a verification email to $emailToShow",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Please check your inbox and click on the verification link to complete your registration.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Button(
+            onClick = onCheckVerification,
+            enabled = !isChecking,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            if (isChecking) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("I've Verified My Email", fontSize = 16.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Didn't receive the email? Check your spam folder or click the button to check if your email has been verified.",
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+        )
+    }
+}
+
+@Composable
+fun VerificationCompleteScreen(
+    onContinue: () -> Unit,
+    darkMode: Boolean
+) {
+    // Auto redirect after 3 seconds
+    LaunchedEffect(Unit) {
+        delay(3000)
+        onContinue()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Success animation
+        val composition by rememberLottieComposition(LottieCompositionSpec.Asset("email_success.json"))
+        val progress by animateLottieCompositionAsState(
+            composition = composition,
+            iterations = 1,
+            isPlaying = true,
+            speed = 0.7f,
+            restartOnPlay = false
+        )
+
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.size(250.dp)
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "Email Verified Successfully!",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Your email has been verified. You can now log in to your account.",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Redirecting to login page...",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun SignupScreenPreview() {
     DaktarSaabTheme(darkTheme = false) {
-        SignupScreen(onLoginClick = {}, darkMode = false, onToggleDarkMode = {})
+        SignupScreen(
+            onLoginClick = {}, darkMode = false, onToggleDarkMode = {},
+            viewModel = TODO(),
+            onSignupSuccess = TODO()
+        )
     }
 }

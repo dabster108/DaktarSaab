@@ -452,7 +452,7 @@ fun ChatScreen(modifier: Modifier = Modifier, groqApiService: GroqApiService, te
                                 Icon(
                                     painter = painterResource(
                                         id = if (darkMode) R.drawable.baseline_light_mode_24
-                                             else R.drawable.baseline_dark_mode_24
+                                        else R.drawable.baseline_dark_mode_24
                                     ),
                                     contentDescription = if (darkMode) "Switch to Light Mode" else "Switch to Dark Mode",
                                     tint = MaterialTheme.colorScheme.onSurface,
