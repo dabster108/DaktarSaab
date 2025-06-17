@@ -110,6 +110,8 @@ class LoginActivity : ComponentActivity() {
                                     Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
                                     // Navigate to Dashboard
                                     val intent = Intent(context, DashboardActivity::class.java)
+                                    intent.putExtra("FROM_LOGIN", true) // Add a flag to indicate coming from login
+                                    intent.putExtra("USER_ID", user.userId) // Pass the specific USER_ID
                                     context.startActivity(intent)
                                     finish() // Close LoginActivity
                                 }

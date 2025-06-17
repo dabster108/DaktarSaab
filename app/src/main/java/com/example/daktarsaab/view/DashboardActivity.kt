@@ -3,6 +3,7 @@ package com.example.daktarsaab.view
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
@@ -19,31 +20,36 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
+import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
+import com.example.daktarsaab.viewmodel.DashboardViewModel
 import com.google.accompanist.pager.*
 import kotlinx.coroutines.delay
-
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.text.style.TextAlign
 
 
 // Data class for Medical Articles
@@ -65,8 +71,26 @@ data class UtilityItem(
 
 // Main Activity for the Dashboard
 class DashboardActivity : ComponentActivity() {
+    private lateinit var viewModel: DashboardViewModel
+    private val TAG = "DashboardActivity"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize the ViewModel
+        viewModel = ViewModelProvider(this)[DashboardViewModel::class.java]
+
+        // Check if we're coming from login and pass the USER_ID to the ViewModel
+        val comingFromLogin = intent.getBooleanExtra("FROM_LOGIN", false)
+        val userIdFromIntent = intent.getStringExtra("USER_ID")
+
+        if (comingFromLogin && userIdFromIntent != null) {
+            Log.d(TAG, "Activity launched from login with USER_ID: $userIdFromIntent. Forcing data fetch for this user.")
+            viewModel.fetchUserData(forcedUserId = userIdFromIntent)
+        } else {
+            Log.d(TAG, "Activity not launched from login or USER_ID not provided, ViewModel will use default fetch logic.")
+            // ViewModel's init block already calls fetchUserData() which will use currentUser by default
+        }
 
         // Enable edge-to-edge display for a modern look
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -84,7 +108,8 @@ class DashboardActivity : ComponentActivity() {
                     onThemeToggle = { dark ->
                         isDarkTheme = dark
                         prefs.edit().putBoolean("dark_mode", dark).apply()
-                    }
+                    },
+                    viewModel = viewModel
                 )
             }
         }
@@ -95,7 +120,8 @@ class DashboardActivity : ComponentActivity() {
 @Composable
 fun DashboardScreen(
     onThemeToggle: (Boolean) -> Unit, // Callback to toggle theme
-    isDarkTheme: Boolean // Current theme state
+    isDarkTheme: Boolean, // Current theme state
+    viewModel: DashboardViewModel // Dashboard ViewModel
 ) {
     // States to control animated visibility for Home content
     var showServiceGrid by remember { mutableStateOf(false) }
@@ -187,15 +213,38 @@ fun DashboardScreen(
                             contentDescription = if (isDarkTheme) "Switch to Light Mode" else "Switch to Dark Mode"
                         )
                     }
-                    // Profile icon in the top app bar
-                    Image(
-                        painter = painterResource(id = R.drawable.baseline_person_24),
-                        contentDescription = "Profile",
+
+                    // Profile image in the top app bar
+                    val userImageUrl by viewModel.userProfileImageUrl.observeAsState()
+
+                    // Use AsyncImage to load the user's profile image from Cloudinary
+                    Box(
                         modifier = Modifier
                             .padding(end = 16.dp)
                             .size(36.dp)
                             .clip(CircleShape)
-                    )
+                            .clickable { selectedNavItem = 3 } // Navigate to profile tab when clicked
+                    ) {
+                        if (userImageUrl != null && userImageUrl!!.isNotEmpty()) {
+                            // If we have a valid image URL, load it with AsyncImage
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(userImageUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Profile",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            // If no image URL is available, show the default person icon
+                            Image(
+                                painter = painterResource(id = R.drawable.baseline_person_24),
+                                contentDescription = "Profile",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
                 }
             )
         },
@@ -317,7 +366,7 @@ fun DashboardScreen(
                     showRecentHistory = showRecentHistory
                 )
                 1 -> UtilitiesContent(showUtilitiesContent = showUtilitiesContent)
-                3 -> ProfileContent()
+                3 -> ProfileContent(viewModel = viewModel)
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -758,7 +807,16 @@ fun UtilityCard(item: UtilityItem) {
 }
 
 @Composable
-fun ProfileContent() {
+fun ProfileContent(viewModel: DashboardViewModel = ViewModelProvider.NewInstanceFactory().create(DashboardViewModel::class.java)) {
+    val userProfileImageUrl by viewModel.userProfileImageUrl.observeAsState()
+    val userData by viewModel.userData.observeAsState()
+
+    // Add a LaunchedEffect to log the image URL from the ProfileContent composable
+    LaunchedEffect(Unit) {
+        Log.d("ProfileContent", "Profile image URL in ProfileContent: $userProfileImageUrl")
+        Log.d("ProfileContent", "User data in ProfileContent: $userData")
+    }
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -766,11 +824,27 @@ fun ProfileContent() {
     ) {
         Text("Profile Section Coming Soon!", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(16.dp))
-        Icon(
-            painter = painterResource(id = R.drawable.baseline_construction_24),
-            contentDescription = "Under Construction",
-            modifier = Modifier.size(96.dp),
-            tint = MaterialTheme.colorScheme.onBackground
-        )
+        userProfileImageUrl?.let { imageUrl ->
+            Log.d("ProfileContent", "Displaying image from URL: $imageUrl")
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "User Profile Image",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+            )
+        } ?: run {
+            Log.d("ProfileContent", "No image URL, showing default icon")
+            Icon(
+                painter = painterResource(id = R.drawable.baseline_construction_24),
+                contentDescription = "Under Construction",
+                modifier = Modifier.size(96.dp),
+                tint = MaterialTheme.colorScheme.onBackground
+            )
+        }
     }
 }
