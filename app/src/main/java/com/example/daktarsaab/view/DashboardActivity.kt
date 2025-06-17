@@ -16,6 +16,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,6 +39,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
@@ -807,44 +809,141 @@ fun UtilityCard(item: UtilityItem) {
 }
 
 @Composable
-fun ProfileContent(viewModel: DashboardViewModel = ViewModelProvider.NewInstanceFactory().create(DashboardViewModel::class.java)) {
+fun ProfileContent(viewModel: DashboardViewModel) { // Removed default viewModel instance
     val userProfileImageUrl by viewModel.userProfileImageUrl.observeAsState()
     val userData by viewModel.userData.observeAsState()
 
     // Add a LaunchedEffect to log the image URL from the ProfileContent composable
-    LaunchedEffect(Unit) {
+    LaunchedEffect(userProfileImageUrl, userData) { // Observe changes to these states
         Log.d("ProfileContent", "Profile image URL in ProfileContent: $userProfileImageUrl")
-        Log.d("ProfileContent", "User data in ProfileContent: $userData")
+        Log.d("ProfileContent", "User data in ProfileContent: FirstName: ${userData?.firstName}, Email: ${userData?.email}")
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top // Align content to the top
     ) {
-        Text("Profile Section Coming Soon!", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Profile Image
         userProfileImageUrl?.let { imageUrl ->
-            Log.d("ProfileContent", "Displaying image from URL: $imageUrl")
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(imageUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = "User Profile Image",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(96.dp)
-                    .clip(CircleShape)
+            if (imageUrl.isNotEmpty()) {
+                Log.d("ProfileContent", "Displaying image from URL: $imageUrl")
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(imageUrl)
+                        .crossfade(true)
+                        .error(R.drawable.baseline_person_24) // Fallback for error
+                        .placeholder(R.drawable.baseline_person_24) // Placeholder while loading
+                        .build(),
+                    contentDescription = "User Profile Image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(120.dp) // Increased size
+                        .clip(CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                )
+            } else {
+                Log.d("ProfileContent", "Image URL is empty, showing default person icon")
+                DefaultProfileIcon(size = 120.dp)
+            }
+        } ?: run {
+            Log.d("ProfileContent", "No image URL, showing default person icon")
+            DefaultProfileIcon(size = 120.dp)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // User Name
+        userData?.let {
+            Text(
+                text = "${it.firstName} ${it.lastName}",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            // User Email
+            Text(
+                text = it.email,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } ?: run {
-            Log.d("ProfileContent", "No image URL, showing default icon")
-            Icon(
-                painter = painterResource(id = R.drawable.baseline_construction_24),
-                contentDescription = "Under Construction",
-                modifier = Modifier.size(96.dp),
-                tint = MaterialTheme.colorScheme.onBackground
+            // Placeholder if user data is not yet available
+            Text(
+                text = "Loading user data...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        Divider()
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Reports Section (Placeholder)
+        ProfileSectionItem(title = "My Reports", icon = R.drawable.baseline_assessment_24) {
+            // TODO: Navigate to Reports Screen or show reports content
+            Log.d("ProfileContent", "My Reports clicked")
+        }
+        ProfileSectionItem(title = "Edit Profile", icon = R.drawable.baseline_edit_24) {
+            // TODO: Navigate to Edit Profile Screen
+            Log.d("ProfileContent", "Edit Profile clicked")
+        }
+        ProfileSectionItem(title = "Settings", icon = R.drawable.baseline_settings_24) {
+            // TODO: Navigate to Settings Screen
+            Log.d("ProfileContent", "Settings clicked")
+        }
+        ProfileSectionItem(title = "Logout", icon = R.drawable.baseline_logout_24, isDestructive = true) {
+            // TODO: Implement logout functionality
+            Log.d("ProfileContent", "Logout clicked")
+            // Example: (context as? Activity)?.finish() or navigate to LoginActivity
+        }
+
+    }
+}
+
+@Composable
+fun DefaultProfileIcon(size: Dp) {
+    Icon(
+        painter = painterResource(id = R.drawable.baseline_person_24),
+        contentDescription = "Default Profile Image",
+        modifier = Modifier.size(size).clip(CircleShape),
+        tint = MaterialTheme.colorScheme.primaryContainer
+    )
+}
+
+@Composable
+fun ProfileSectionItem(title: String, icon: Int, isDestructive: Boolean = false, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = title,
+            tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Icon(
+            painter = painterResource(id = R.drawable.baseline_arrow_forward_ios_24),
+            contentDescription = "Go to $title",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp)
+        )
     }
 }
