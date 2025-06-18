@@ -436,17 +436,51 @@ fun HomeContent(
         visible = showRecentHistoryLabel,
         enter = fadeIn(animationSpec = tween(durationMillis = 300))
     ) {
-        Text("Recent History", style = MaterialTheme.typography.titleMedium)
-    }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // State to track whether to show all appointments or just the first two
+            var showAllAppointments by remember { mutableStateOf(false) }
 
-    AnimatedVisibility(
-        visible = showRecentHistory,
-        enter = slideInVertically(
-            initialOffsetY = { it },
-            animationSpec = tween(durationMillis = 500)
-        ) + fadeIn(animationSpec = tween(durationMillis = 500))
-    ) {
-        RecentHistory()
+            // Row to contain both the title and the "View All" button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Recent History", style = MaterialTheme.typography.titleMedium)
+
+                // View All toggle button
+                Row(
+                    modifier = Modifier
+                        .clickable { showAllAppointments = !showAllAppointments }
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "View All",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Icon(
+                        painter = painterResource(id = R.drawable.baseline_swipe_down_24),
+                        contentDescription = "Toggle Appointments View",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = showRecentHistory,
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(durationMillis = 500)
+                ) + fadeIn(animationSpec = tween(durationMillis = 500))
+            ) {
+                RecentHistory(showAllAppointments)
+            }
+        }
     }
 }
 
@@ -652,7 +686,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
 }
 
 @Composable
-fun RecentHistory() {
+fun RecentHistory(showAllAppointments: Boolean) {
     val appointments = listOf(
         "Appointment 1: Kathmandu - Dr. Sharma (Cardiologist)",
         "Appointment 2: Lalitpur - Dr. Basnet (Dermatologist)",
@@ -661,11 +695,19 @@ fun RecentHistory() {
         "Appointment 5: Pokhara - Dr. Gurung (Dentist)"
     )
 
-    LazyColumn(
+    // Calculate which appointments to show based on the state
+    val appointmentsToShow = if (showAllAppointments) {
+        appointments
+    } else {
+        appointments.take(2)
+    }
+
+    // Fixed height column instead of LazyColumn to prevent scrolling
+    Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.heightIn(max = 400.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
-        items(appointments) { appointment ->
+        appointmentsToShow.forEach { appointment ->
             Card(
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(4.dp),
@@ -690,6 +732,11 @@ fun RecentHistory() {
                     }
                 }
             }
+        }
+
+        // Show a message when there are more appointments to see but not showing all
+        if (!showAllAppointments && appointments.size > 2) {
+
         }
     }
 }
