@@ -172,6 +172,7 @@ class ChatbotActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = getColor(R.color.black)
         enableEdgeToEdge()
 
         // Initialize TextToSpeech

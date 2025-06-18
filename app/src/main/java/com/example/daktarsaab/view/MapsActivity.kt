@@ -290,7 +290,6 @@ interface GeoapifyService {
 
 
 class MapsActivity : ComponentActivity() {
-
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -308,6 +307,9 @@ class MapsActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Set status bar color to black
+        window.statusBarColor = getColor(R.color.black)
+
         // Use Context.MODE_PRIVATE for SharedPreferences
         Configuration.getInstance().load(this, getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
 
@@ -366,7 +368,7 @@ fun MedicalMapScreen(
     var startMarkerState by remember { mutableStateOf<Marker?>(null) }
     var endMarkerState by remember { mutableStateOf<Marker?>(null) }
     var isFullscreen by remember { mutableStateOf(false) }
-    // var selectedCategory by remember { mutableStateOf<String?>(null) } // Removed
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
     var placeMarkers by remember { mutableStateOf<List<Marker>>(emptyList()) }
     var showPlaceDetailsDialog by remember { mutableStateOf(false) }
     var placeDetailsTitle by remember { mutableStateOf("") }
@@ -375,7 +377,7 @@ fun MedicalMapScreen(
     var permissionCheckedInitially by remember { mutableStateOf(false) }
     var initialZoomDone by remember { mutableStateOf(false) }
     val normalZoomLevel = 15.0
-    val fullscreenZoomLevel = normalZoomLevel * 1.2
+    val fullscreenZoomLevel = normalZoomLevel * 1.05  // Reduced from 1.2 to 1.05 for less aggressive zoom
     val geoapifyService = remember { GeoapifyService.create() }
 
     // State for TopAppBar title
@@ -513,55 +515,76 @@ fun MedicalMapScreen(
         }
     }
 
-    val selectedCategory = null
-    LaunchedEffect(selectedCategory, currentLocation, mapViewRef) { // Removed category-based place search
+    LaunchedEffect(selectedCategory, currentLocation, mapViewRef) {
         if (selectedCategory == null || currentLocation == null || mapViewRef == null) return@LaunchedEffect
+
         val stableCurrentLocation = currentLocation
         coroutineScope.launch {
             try {
                 Log.d("MedicalMapScreen", "Loading places for category: $selectedCategory")
+
+                // Clear existing markers
                 withContext(Dispatchers.Main) {
                     placeMarkers.forEach { mapViewRef?.overlays?.remove(it) }
                     mapViewRef?.invalidate()
                 }
                 placeMarkers = emptyList()
+
                 val categoryMapping = mapOf(
                     "Hospitals" to "healthcare.hospital",
                     "Pharmacies" to "healthcare.pharmacy"
                 )
+
                 val geoCategory = categoryMapping[selectedCategory!!] ?: return@launch
-                val filter = "circle:${stableCurrentLocation!!.longitude},${stableCurrentLocation.latitude},5000"
+                // Set radius to 9000 meters (9km)
+                val filter = "circle:${stableCurrentLocation?.longitude},${stableCurrentLocation?.latitude},9000"
+
+                // Only proceed if location is available
+                if (stableCurrentLocation?.latitude == null || stableCurrentLocation.longitude == null) {
+                    Log.e("MedicalMapScreen", "Current location coordinates are null")
+                    return@launch
+                }
+
                 val response = geoapifyService.searchPlaces(
                     categories = geoCategory,
                     filter = filter,
                     limit = 20,
                     apiKey = geoapifyApiKey
                 )
+
                 Log.d("MedicalMapScreen", "Found ${response.features.size} places for $selectedCategory")
+
                 val newMarkers = response.features.mapNotNull { feature ->
                     val lat = feature.properties.lat
                     val lon = feature.properties.lon
                     val name = feature.properties.name ?: feature.properties.formatted ?: "Unknown"
+
                     if (lat != null && lon != null) {
                         Marker(mapViewRef).apply {
                             position = GeoPoint(lat, lon)
                             title = name
                             snippet = feature.properties.address_line1 ?: feature.properties.formatted ?: "No address available"
+
+                            // Set appropriate icon based on category
                             icon = when (selectedCategory) {
-                                "Hospitals" -> ContextCompat.getDrawable(context, R.drawable.baseline_local_hospital_24)?.apply {
-                                    setTint(ContextCompat.getColor(context, R.color.hospital_color))
-                                }
-                                "Pharmacies" -> ContextCompat.getDrawable(context, R.drawable.baseline_local_pharmacy_24)?.apply {
-                                    setTint(ContextCompat.getColor(context, R.color.pharmacy_color))
-                                }
-                                else -> ContextCompat.getDrawable(context, R.drawable.baseline_accessibility_24)
-                            } ?: ContextCompat.getDrawable(context, R.drawable.baseline_accessibility_24)
+                                "Hospitals" -> ContextCompat.getDrawable(context, R.drawable.baseline_local_hospital_24)
+                                "Pharmacies" -> ContextCompat.getDrawable(context, R.drawable.baseline_health_and_safety_24)
+                                else -> ContextCompat.getDrawable(context, R.drawable.baseline_local_hospital_24)
+                            }?.apply {
+                                setTint(when (selectedCategory) {
+                                    "Hospitals" -> AndroidColor.RED
+                                    "Pharmacies" -> AndroidColor.BLACK
+                                    else -> AndroidColor.BLUE
+                                })
+                            }
+
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                             id = feature.properties.place_id
+
+                            // Set marker click listener
                             setOnMarkerClickListener { marker, _ ->
                                 selectedLocationName = marker.title
                                 coroutineScope.launch {
-                                    if (!isActive) return@launch
                                     try {
                                         val placeId = marker.id
                                         if (placeId != null) {
@@ -571,19 +594,12 @@ fun MedicalMapScreen(
                                                 placeDetailsTitle = details.name ?: "Place Details"
                                                 val addressInfo = details.formatted ?: details.address_line1 ?: "No address available"
                                                 val categoryInfo = details.categories?.joinToString(", ") ?: "No category information"
-                                                placeDetailsMessage = "Address: $addressInfo\\nCategories: $categoryInfo"
-                                                showPlaceDetailsDialog = true
-                                            } else {
-                                                placeDetailsTitle = "Place Details"
-                                                placeDetailsMessage = "No details available for this place."
+                                                placeDetailsMessage = "Address: $addressInfo\nCategories: $categoryInfo"
                                                 showPlaceDetailsDialog = true
                                             }
                                         }
                                     } catch (e: Exception) {
                                         Log.e("MedicalMapScreen", "Error fetching place details: ${e.message}", e)
-                                        placeDetailsTitle = "Error"
-                                        placeDetailsMessage = "Failed to fetch details: ${e.message}"
-                                        showPlaceDetailsDialog = true
                                     }
                                 }
                                 true
@@ -591,17 +607,18 @@ fun MedicalMapScreen(
                         }
                     } else null
                 }
+
+                // Add new markers and adjust map view
                 withContext(Dispatchers.Main) {
                     newMarkers.forEach { mapViewRef?.overlays?.add(it) }
+                    placeMarkers = newMarkers
+
                     if (newMarkers.isNotEmpty()) {
                         val boundingBox = BoundingBox.fromGeoPoints(newMarkers.map { it.position })
                         mapViewRef?.zoomToBoundingBox(boundingBox.increaseByScale(1.2f), true, 100)
                     }
                     mapViewRef?.invalidate()
                 }
-                placeMarkers = newMarkers
-                // mapScreenMode = MapScreenMode.SEARCH_RESULTS // Update screen mode - Removed
-                currentMapTitle = selectedCategory ?: "Search Results" // Update title
             } catch (e: Exception) {
                 Log.e("MedicalMapScreen", "Error loading places: ${e.message}", e)
             }
@@ -747,10 +764,67 @@ fun MedicalMapScreen(
                             destinationSearchQuery = feature.properties.formatted
                             destinationSuggestions = emptyList()
                             showDestinationSuggestions = false
-
                         },
                         showSuggestions = showDestinationSuggestions
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Adding Hospital and Pharmacy buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Button(
+                            onClick = { selectedCategory = "Hospitals" },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalHospital,
+                                    contentDescription = "Hospitals",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Hospitals",
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { selectedCategory = "Pharmacies" },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 8.dp)
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalPharmacy,
+                                    contentDescription = "Pharmacies",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Pharmacies",
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(16.dp))
                     if (startSearchQuery.isNotBlank() && destinationSearchQuery.isNotBlank()) {
                         Button(
@@ -823,6 +897,7 @@ fun MedicalMapScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
+                    .padding(if (isFullscreen) 0.dp else 16.dp)  // Add padding when not fullscreen
                     .clip(if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp))
             ) {
                 if (currentLocation != null) {
@@ -998,4 +1073,3 @@ fun SuggestionItem(suggestion: GeoapifyFeature, onClick: () -> Unit) {
         )
     }
 }
-

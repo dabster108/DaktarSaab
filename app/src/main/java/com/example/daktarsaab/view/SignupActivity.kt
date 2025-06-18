@@ -55,6 +55,7 @@ class SignupActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = getColor(R.color.black)
 
         // Initialize ViewModel
         viewModel = ViewModelProvider(this)[SignupViewModel::class.java]

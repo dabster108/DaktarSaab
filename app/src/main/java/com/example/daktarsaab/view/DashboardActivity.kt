@@ -79,9 +79,13 @@ class DashboardActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = getColor(R.color.black)
 
         // Initialize the ViewModel
         viewModel = ViewModelProvider(this)[DashboardViewModel::class.java]
+
+        // Set status bar color to match the theme
+        window.statusBarColor = getColor(R.color.black) // Use the app's purple color
 
         // Check if we're coming from login and pass the USER_ID to the ViewModel
         val comingFromLogin = intent.getBooleanExtra("FROM_LOGIN", false)

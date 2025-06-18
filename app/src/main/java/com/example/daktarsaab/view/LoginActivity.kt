@@ -64,6 +64,9 @@ class LoginActivity : ComponentActivity() {
         // Initialize the LoginViewModel
         viewModel = ViewModelProvider(this)[LoginViewModel::class.java]
 
+        // Set status bar color to match the theme
+        window.statusBarColor = getColor(R.color.black) // Use your app's purple color
+
         // Get the application-wide shared preferences
         val sharedPreferences = getSharedPreferences("app_prefs", MODE_PRIVATE)
 
