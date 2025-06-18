@@ -88,8 +88,9 @@ class SignupActivity : ComponentActivity() {
                         is SignupState.VerificationComplete -> {
                             VerificationCompleteScreen(
                                 onContinue = {
-                                    // Navigate to login screen
+                                    // Navigate to login screen with FROM_SIGNUP flag
                                     val intent = Intent(this@SignupActivity, LoginActivity::class.java)
+                                    intent.putExtra("FROM_SIGNUP", true) // Add this flag to skip splash animation
                                     startActivity(intent)
                                     finish()
                                 },
@@ -100,6 +101,7 @@ class SignupActivity : ComponentActivity() {
                             SignupScreen(
                                 onLoginClick = {
                                     val intent = Intent(this@SignupActivity, LoginActivity::class.java)
+                                    intent.putExtra("FROM_SIGNUP", true) // Add flag to skip splash animation
                                     startActivity(intent)
                                     finish()
                                 },

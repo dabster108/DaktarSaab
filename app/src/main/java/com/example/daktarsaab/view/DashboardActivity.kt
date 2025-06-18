@@ -200,7 +200,11 @@ fun DashboardScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (selectedNavItem == 1) "Utilities" else "Dashboard"
+                        text = when (selectedNavItem) {
+                            1 -> "Utilities"
+                            3 -> "Profile"
+                            else -> "Dashboard"
+                        }
                     )
                 },
                 actions = {
@@ -958,14 +962,23 @@ fun ProfileContent(viewModel: DashboardViewModel) { // Removed default viewModel
             // TODO: Navigate to Edit Profile Screen
             Log.d("ProfileContent", "Edit Profile clicked")
         }
-        ProfileSectionItem(title = "Settings", icon = R.drawable.baseline_settings_24) {
-            // TODO: Navigate to Settings Screen
-            Log.d("ProfileContent", "Settings clicked")
-        }
+
+        // Get context reference outside the ProfileSectionItem
+        val context = LocalContext.current
+
         ProfileSectionItem(title = "Logout", icon = R.drawable.baseline_logout_24, isDestructive = true) {
-            // TODO: Implement logout functionality
-            Log.d("ProfileContent", "Logout clicked")
-            // Example: (context as? Activity)?.finish() or navigate to LoginActivity
+            // Direct logout to login screen without splash animation
+            try {
+                // Create intent for LoginActivity
+                val intent = Intent(context, Class.forName("com.example.daktarsaab.view.LoginActivity"))
+                // Clear back stack so user can't go back with back button
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                context.startActivity(intent)
+                // Finish current activity
+                (context as? ComponentActivity)?.finish()
+            } catch (e: Exception) {
+                Log.e("ProfileContent", "Error navigating to login screen", e)
+            }
         }
 
     }

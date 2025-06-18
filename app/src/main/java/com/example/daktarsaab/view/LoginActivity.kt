@@ -55,14 +55,23 @@ class LoginActivity : ComponentActivity() {
     private lateinit var viewModel: LoginViewModel
     private val TAG = "LoginActivity"
 
+    // Key for tracking splash screen display in this app session
+    private val SPLASH_SHOWN_KEY = "splash_shown_this_session"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Initialize the LoginViewModel
         viewModel = ViewModelProvider(this)[LoginViewModel::class.java]
 
+        // Get the application-wide shared preferences
         val sharedPreferences = getSharedPreferences("app_prefs", MODE_PRIVATE)
-        val isSplashShown: Boolean = false // Explicitly defined as Boolean type
+
+        // Check if splash has been shown this session
+        val isSplashShown = sharedPreferences.getBoolean(SPLASH_SHOWN_KEY, false)
+
+        // Check if we're coming from signup or other activity
+        val isComingFromSignup = intent.getBooleanExtra("FROM_SIGNUP", false)
 
         // Check if we're resuming after a sign-in attempt
         viewModel.checkLoggedInUser()
@@ -73,14 +82,16 @@ class LoginActivity : ComponentActivity() {
             var darkMode by rememberSaveable { mutableStateOf(isDarkTheme) }
 
             DaktarSaabTheme(darkTheme = darkMode) {
-                var showSplash by remember { mutableStateOf(!isSplashShown) }
+                // Skip splash if it's already been shown this session or if coming from signup
+                var showSplash by remember { mutableStateOf(!isSplashShown && !isComingFromSignup) }
 
                 LaunchedEffect(showSplash) {
                     if (showSplash) {
                         // Changed duration to 5 seconds
                         delay(5000)
                         showSplash = false
-                        sharedPreferences.edit().putBoolean("isSplashShown", true).apply()
+                        // Mark splash as shown for this session
+                        sharedPreferences.edit().putBoolean(SPLASH_SHOWN_KEY, true).apply()
                     }
                 }
 
