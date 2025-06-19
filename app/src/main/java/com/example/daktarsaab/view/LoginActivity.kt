@@ -55,9 +55,6 @@ class LoginActivity : ComponentActivity() {
     private lateinit var viewModel: LoginViewModel
     private val TAG = "LoginActivity"
 
-    // Key for tracking splash screen display in this app session
-    private val SPLASH_SHOWN_KEY = "splash_shown_this_session"
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -65,16 +62,7 @@ class LoginActivity : ComponentActivity() {
         viewModel = ViewModelProvider(this)[LoginViewModel::class.java]
 
         // Set status bar color to match the theme
-        window.statusBarColor = getColor(R.color.black) // Use your app's purple color
-
-        // Get the application-wide shared preferences
-        val sharedPreferences = getSharedPreferences("app_prefs", MODE_PRIVATE)
-
-        // Check if splash has been shown this session
-        val isSplashShown = sharedPreferences.getBoolean(SPLASH_SHOWN_KEY, false)
-
-        // Check if we're coming from signup or other activity
-        val isComingFromSignup = intent.getBooleanExtra("FROM_SIGNUP", false)
+        window.statusBarColor = getColor(R.color.black)
 
         // Check if we're resuming after a sign-in attempt
         viewModel.checkLoggedInUser()
@@ -85,202 +73,67 @@ class LoginActivity : ComponentActivity() {
             var darkMode by rememberSaveable { mutableStateOf(isDarkTheme) }
 
             DaktarSaabTheme(darkTheme = darkMode) {
-                // Skip splash if it's already been shown this session or if coming from signup
-                var showSplash by remember { mutableStateOf(!isSplashShown && !isComingFromSignup) }
-
-                LaunchedEffect(showSplash) {
-                    if (showSplash) {
-                        // Changed duration to 5 seconds
-                        delay(5000)
-                        showSplash = false
-                        // Mark splash as shown for this session
-                        sharedPreferences.edit().putBoolean(SPLASH_SHOWN_KEY, true).apply()
-                    }
-                }
-
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = colorScheme.background
                 ) {
-                    if (showSplash) {
-                        SplashScreen()
-                    } else {
-                        val context = LocalContext.current
+                    val context = LocalContext.current
 
-                        // Observe login state to handle navigation
-                        val loginState by viewModel.loginState.observeAsState()
+                    // Observe login state to handle navigation
+                    val loginState by viewModel.loginState.observeAsState()
 
-                        // Debug logging for login states
-                        LaunchedEffect(loginState) {
-                            when (loginState) {
-                                is LoginState.Loading -> {
-                                    Log.d(TAG, "Login state: Loading")
-                                }
-                                is LoginState.Success -> {
-                                    Log.d(TAG, "Login state: Success")
-                                    val user = (loginState as LoginState.Success).user
-                                    Log.d(TAG, "Logged in user: ${user.email}, ID: ${user.userId}")
+                    // Debug logging for login states
+                    LaunchedEffect(loginState) {
+                        when (loginState) {
+                            is LoginState.Loading -> {
+                                Log.d(TAG, "Login state: Loading")
+                            }
+                            is LoginState.Success -> {
+                                Log.d(TAG, "Login state: Success")
+                                val user = (loginState as LoginState.Success).user
+                                Log.d(TAG, "Logged in user: ${user.email}, ID: ${user.userId}")
 
-                                    Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
-                                    // Navigate to Dashboard
-                                    val intent = Intent(context, DashboardActivity::class.java)
-                                    intent.putExtra("FROM_LOGIN", true) // Add a flag to indicate coming from login
-                                    intent.putExtra("USER_ID", user.userId) // Pass the specific USER_ID
-                                    context.startActivity(intent)
-                                    finish() // Close LoginActivity
-                                }
-                                is LoginState.Error -> {
-                                    val errorMsg = (loginState as LoginState.Error).message
-                                    if (errorMsg.isNotEmpty()) {
-                                        Log.d(TAG, "Login state: Error - $errorMsg")
-                                    }
-                                }
-                                null -> {
-                                    Log.d(TAG, "Login state: Initial null state")
+                                Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
+                                // Navigate to Dashboard
+                                val intent = Intent(context, DashboardActivity::class.java)
+                                intent.putExtra("FROM_LOGIN", true)
+                                intent.putExtra("USER_ID", user.userId)
+                                context.startActivity(intent)
+                                finish()
+                            }
+                            is LoginState.Error -> {
+                                val errorMsg = (loginState as LoginState.Error).message
+                                if (errorMsg.isNotEmpty()) {
+                                    Log.d(TAG, "Login state: Error - $errorMsg")
                                 }
                             }
+                            null -> {
+                                Log.d(TAG, "Login state: Initial null state")
+                            }
                         }
-
-                        LoginScreen(
-                            onForgotPasswordClick = {
-                                val intent = Intent(context, ForgotPasswordActivity::class.java)
-                                context.startActivity(intent)
-                            },
-                            onSignupClick = {
-                                val intent = Intent(context, SignupActivity::class.java)
-                                context.startActivity(intent)
-                            },
-                            onGoogleSignInClick = {
-                                // Google Sign-In removed
-                                Toast.makeText(context, "Google Sign-In is not available", Toast.LENGTH_SHORT).show()
-                            },
-                            darkMode = darkMode,
-                            onToggleDarkMode = { darkMode = !darkMode },
-                            viewModel = viewModel
-                        )
                     }
-                }
-            }
-        }
-    }
-}
 
-// Rest of the code remains the same (SplashScreen, LoginScreen, etc.)
-@Composable
-fun SplashScreen() {
-    // Lottie animation setup
-    val lottieComposition by rememberLottieComposition(LottieCompositionSpec.Asset("loading.json"))
-    val lottieProgress by animateLottieCompositionAsState(
-        composition = lottieComposition,
-        iterations = LottieConstants.IterateForever // Loop the Lottie animation
-    )
-
-    // Text animation states
-    val welcomeText = "Welcome to"
-    val appNameLine1 = "Daktar"
-    val appNameLine2 = "Saab"
-
-    var welcomeVisible by remember { mutableStateOf(false) }
-    var appName1Visible by remember { mutableStateOf(false) }
-    var appName2Visible by remember { mutableStateOf(false) }
-
-    // Animation parameters for text
-    val textAnimationDuration = 700 // milliseconds
-    val textDropOffset = (-30).dp // How far the text drops from
-
-    // LaunchedEffect to trigger text animations sequentially
-    LaunchedEffect(Unit) {
-        delay(400) // Initial delay for text animations to start after Lottie is visible
-        welcomeVisible = true
-        delay(300) // Stagger for "Daktar"
-        appName1Visible = true
-        delay(250) // Stagger for "Saab"
-        appName2Visible = true
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White), // Explicitly White background
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center // Center the content vertically in the column
-        ) {
-            // 1. Lottie Animation - Size Increased
-            LottieAnimation(
-                composition = lottieComposition,
-                progress = { lottieProgress },
-                modifier = Modifier.size(280.dp) // Increased size for Lottie animation
-            )
-
-            // 2. "Much Space" between Lottie and Text
-            Spacer(modifier = Modifier.height(40.dp)) // Adjustable space
-
-            // 3. Animated Text Elements
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // Animated "Welcome to"
-                AnimatedVisibility(
-                    visible = welcomeVisible,
-                    enter = slideInVertically(
-                        initialOffsetY = { textDropOffset.roundToPx() },
-                        animationSpec = tween(durationMillis = textAnimationDuration, easing = EaseOutCubic)
-                    ) + fadeIn(animationSpec = tween(durationMillis = textAnimationDuration))
-                ) {
-                    Text(
-                        text = welcomeText,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = colorScheme.onSurface.copy(alpha = 0.8f),
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Animated "Daktar"
-                AnimatedVisibility(
-                    visible = appName1Visible,
-                    enter = slideInVertically(
-                        initialOffsetY = { textDropOffset.roundToPx() },
-                        animationSpec = tween(durationMillis = textAnimationDuration, easing = EaseOutCubic)
-                    ) + fadeIn(animationSpec = tween(durationMillis = textAnimationDuration))
-                ) {
-                    Text(
-                        text = appNameLine1,
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colorScheme.primary,
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Animated "Saab"
-                AnimatedVisibility(
-                    visible = appName2Visible,
-                    enter = slideInVertically(
-                        initialOffsetY = { textDropOffset.roundToPx() },
-                        animationSpec = tween(durationMillis = textAnimationDuration, easing = EaseOutCubic)
-                    ) + fadeIn(animationSpec = tween(durationMillis = textAnimationDuration))
-                ) {
-                    Text(
-                        text = appNameLine2,
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colorScheme.primary,
-                        textAlign = TextAlign.Center
+                    LoginScreen(
+                        onForgotPasswordClick = {
+                            val intent = Intent(context, ForgotPasswordActivity::class.java)
+                            context.startActivity(intent)
+                        },
+                        onSignupClick = {
+                            val intent = Intent(context, SignupActivity::class.java)
+                            context.startActivity(intent)
+                        },
+                        onGoogleSignInClick = {
+                            Toast.makeText(context, "Google Sign-In is not available", Toast.LENGTH_SHORT).show()
+                        },
+                        darkMode = darkMode,
+                        onToggleDarkMode = { darkMode = !darkMode },
+                        viewModel = viewModel
                     )
                 }
             }
         }
     }
 }
-
-private fun Dp.roundToPx(): Int {return this.value.toInt()}
-
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -802,15 +655,7 @@ private fun BlueCheckmark() {
     }
 }
 
-@Preview(showBackground = true, name = "Splash Screen Preview")
-@Composable
-fun SplashScreenPreview() {
-    DaktarSaabTheme(content = {
-        SplashScreen()
-    }, colorScheme = colorScheme)
-}
-
-@Preview(showBackground = true, showSystemUi = true, name = "Login Screen Preview")
+@Preview(showBackground = true, name = "Login Screen Preview")
 @Composable
 fun LoginScreenPreview() {
     DaktarSaabTheme(content = {
