@@ -1,9 +1,12 @@
 package com.example.daktarsaab.view
 
 import android.Manifest
-import android.app.Activity // Added for context.finish()
-import android.content.Context // Added for Context.MODE_PRIVATE
+import android.app.Activity
+import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.Color as AndroidColor
 import android.location.Location
 import android.os.Bundle
@@ -11,27 +14,22 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.LocalPharmacy
-import androidx.compose.material.icons.filled.Person // Keep this for default icon
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-// import androidx.compose.material3.MaterialTheme.colorScheme // Not needed if using MaterialTheme.colorScheme directly
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.layout.ContentScale // Added for AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,12 +37,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import coil.compose.AsyncImage
 import com.example.daktarsaab.R
-import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.osmdroid.config.Configuration
@@ -60,6 +58,8 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
+import java.net.HttpURLConnection
+import java.net.URL
 
 // --- Geoapify Data Classes (Autocomplete) ---
 data class GeoapifyAutocompleteResponse(val features: List<GeoapifyFeature>)
@@ -307,11 +307,16 @@ class MapsActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Set status bar color to black
-        window.statusBarColor = getColor(R.color.black)
 
-        // Use Context.MODE_PRIVATE for SharedPreferences
-        Configuration.getInstance().load(this, getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+        // Use window insetter for modern status bar handling
+        ResourcesCompat.getColor(resources, R.color.black, theme).let { color ->
+            window.statusBarColor = color
+        }
+
+        Configuration.getInstance().load(
+            this,
+            getSharedPreferences("osmdroid", MODE_PRIVATE)
+        )
 
         val userName = intent.getStringExtra("USER_NAME")
         val profileImageUrl = intent.getStringExtra("PROFILE_IMAGE_URL")
@@ -352,10 +357,43 @@ fun MedicalMapScreen(
     permissionSignal: Long
 ) {
     val context = LocalContext.current
-    val activity = LocalContext.current as? Activity // For finishing activity
     val coroutineScope = rememberCoroutineScope()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var currentLocation by remember { mutableStateOf<GeoPoint?>(null) }
+    var mapViewRef by remember { mutableStateOf<MapView?>(null) }
+
+    // Add locationCallback with proper scope
+    val locationCallback = remember {
+        object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.lastLocation?.let { location ->
+                    val newLocation = GeoPoint(location.latitude, location.longitude)
+                    currentLocation = newLocation
+                    Log.d("MedicalMapScreen", "Location Update: ${location.latitude}, ${location.longitude}")
+
+                    mapViewRef?.apply {
+                        controller.setCenter(newLocation)
+                        invalidate()
+                    }
+                }
+            }
+        }
+    }
+
+    // Create location request
+    val locationRequest = remember {
+        LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000) // Update every 5 seconds
+            .setMinUpdateDistanceMeters(5f) // Minimum 5 meters movement
+            .build()
+    }
+
+    // Cleanup location updates when component is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
+    }
+
     var selectedLocationName by remember { mutableStateOf("") }
     var startSearchQuery by remember { mutableStateOf("") }
     var destinationSearchQuery by remember { mutableStateOf("") }
@@ -364,7 +402,6 @@ fun MedicalMapScreen(
     var showStartSuggestions by remember { mutableStateOf(false) }
     var showDestinationSuggestions by remember { mutableStateOf(false) }
     var routePolyline by remember { mutableStateOf<Polyline?>(null) }
-    var mapViewRef by remember { mutableStateOf<MapView?>(null) }
     var startMarkerState by remember { mutableStateOf<Marker?>(null) }
     var endMarkerState by remember { mutableStateOf<Marker?>(null) }
     var isFullscreen by remember { mutableStateOf(false) }
@@ -401,6 +438,7 @@ fun MedicalMapScreen(
                 endMarkerState?.let { mapView.overlays.remove(it) }
             }
 
+            // Create route points
             val routePoints = mutableListOf<GeoPoint>()
             when (geometry.type) {
                 "LineString" -> {
@@ -435,29 +473,39 @@ fun MedicalMapScreen(
                     outlinePaint.color = AndroidColor.parseColor("#2196F3")
                     outlinePaint.strokeWidth = 10f
                 }
+
+                // Start marker with Geoapify icon
+                val startIconUrl = "https://api.geoapify.com/v2/icon/?type=awesome&color=red&size=50&icon=taxi&contentSize=15&strokeColor=%238a78c8&shadowColor=%23e18080&noShadow&noWhiteCircle&apiKey=${geoapifyApiKey}"
                 val startMarker = Marker(mapViewRef).apply {
                     position = startPoint
                     title = "Start: $startAddress"
-                    icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)
+                    val customIcon = loadBitmapFromUrl(startIconUrl, context)
+                    icon = customIcon ?: ContextCompat.getDrawable(context, android.R.drawable.ic_menu_mylocation)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
+
+                // End marker with Geoapify icon (different color)
+                val endIconUrl = "https://api.geoapify.com/v2/icon/?type=awesome&color=black&size=50&icon=taxi&contentSize=15&strokeColor=%238a78c8&shadowColor=%23e18080&noShadow&noWhiteCircle&apiKey=${geoapifyApiKey}"
                 val endMarker = Marker(mapViewRef).apply {
                     position = endPoint
                     title = "Destination: $endAddress"
-                    icon = ContextCompat.getDrawable(context, android.R.drawable.ic_menu_directions)
+                    val customIcon = loadBitmapFromUrl(endIconUrl, context)
+                    icon = customIcon ?: ContextCompat.getDrawable(context, android.R.drawable.ic_menu_directions)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
+
+                // Add overlays and update map
                 mapViewRef?.overlays?.add(polyline)
                 mapViewRef?.overlays?.add(startMarker)
                 mapViewRef?.overlays?.add(endMarker)
                 routePolyline = polyline
                 startMarkerState = startMarker
                 endMarkerState = endMarker
+
                 val boundingBox = BoundingBox.fromGeoPoints(routePoints)
                 mapViewRef?.zoomToBoundingBox(boundingBox.increaseByScale(1.2f), true, 100)
                 mapViewRef?.invalidate()
-                // mapScreenMode = MapScreenMode.ROUTE_OVERVIEW // Update screen mode - Removed
-                currentMapTitle = "Route Overview" // Update title directly
+                currentMapTitle = "DaktarSaab Route" // Update title to indicate route mode
             } else {
                 Log.e("MedicalMapScreen", "Route has too few points to display")
             }
@@ -571,11 +619,7 @@ fun MedicalMapScreen(
                                 "Pharmacies" -> ContextCompat.getDrawable(context, R.drawable.baseline_health_and_safety_24)
                                 else -> ContextCompat.getDrawable(context, R.drawable.baseline_local_hospital_24)
                             }?.apply {
-                                setTint(when (selectedCategory) {
-                                    "Hospitals" -> AndroidColor.RED
-                                    "Pharmacies" -> AndroidColor.BLACK
-                                    else -> AndroidColor.BLUE
-                                })
+                                setTint(ContextCompat.getColor(context, android.R.color.holo_blue_dark))
                             }
 
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
@@ -850,6 +894,10 @@ fun MedicalMapScreen(
                                                 val startPoint = GeoPoint(startLat, startLon)
                                                 val endPoint = GeoPoint(endLat, endLon)
                                                 val waypoints = "$startLat,$startLon|$endLat,$endLon"
+
+                                                // Updated URL format to match exactly
+                                                val routingUrl = "https://api.geoapify.com/v1/routing?waypoints=&mode=drive&apiKey=17f1b9b807bd49b6991ad029e5571cf1"
+
                                                 val routeResponse = geoapifyService.getRoute(
                                                     waypoints = waypoints,
                                                     mode = "drive",
@@ -1000,6 +1048,24 @@ fun MedicalMapScreen(
                     }
                 }
             )
+        }
+    }
+}
+
+private suspend fun loadBitmapFromUrl(url: String, context: Context): Drawable? {
+    return withContext(Dispatchers.IO) {
+        try {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            connection.doInput = true
+            connection.connect()
+            val input = connection.inputStream
+            val bitmap = BitmapDrawable(context.resources, BitmapFactory.decodeStream(input))
+            input.close()
+            connection.disconnect()
+            bitmap
+        } catch (e: Exception) {
+            Log.e("MedicalMapScreen", "Error loading marker icon: ${e.message}")
+            null
         }
     }
 }
