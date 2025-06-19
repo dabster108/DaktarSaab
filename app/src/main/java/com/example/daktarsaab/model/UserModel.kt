@@ -1,9 +1,19 @@
 package com.example.daktarsaab.model
 
+import com.google.firebase.database.IgnoreExtraProperties
+
+@IgnoreExtraProperties
 data class UserModel(
     var userId: String = "",
-    var fullName: String = "",
+    var firstName: String = "",
+    var lastName: String = "",
+    var phoneNumber: String = "",
+    var active: String = "",
     var email: String = "",
+    var password: String = "",  // Added password field
+    var imageUrl: String = "",  // Added image URL field for Cloudinary
+    val f: String = ""  // Required field as per your existing model
 ) {
-    // You can add additional methods or properties if needed
+    // Empty constructor needed for Firebase deserialization
+    constructor() : this("", "", "", "", "", "", "", "", "")
 }

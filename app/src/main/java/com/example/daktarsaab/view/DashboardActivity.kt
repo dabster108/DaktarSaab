@@ -1,11 +1,13 @@
 package com.example.daktarsaab.view
 
+import android.content.Context // Added import for Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -15,36 +17,42 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
+import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
+import com.example.daktarsaab.viewmodel.DashboardViewModel
 import com.google.accompanist.pager.*
 import kotlinx.coroutines.delay
-
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme.colorScheme
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.text.style.TextAlign
 
 
 // Data class for Medical Articles
@@ -66,21 +74,49 @@ data class UtilityItem(
 
 // Main Activity for the Dashboard
 class DashboardActivity : ComponentActivity() {
+    private lateinit var viewModel: DashboardViewModel
+    private val TAG = "DashboardActivity"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge() // Enables edge-to-edge display for a modern look
+        window.statusBarColor = getColor(R.color.black)
+
+        // Initialize the ViewModel
+        viewModel = ViewModelProvider(this)[DashboardViewModel::class.java]
+
+        // Set status bar color to match the theme
+        window.statusBarColor = getColor(R.color.black) // Use the app's purple color
+
+        // Check if we're coming from login and pass the USER_ID to the ViewModel
+        val comingFromLogin = intent.getBooleanExtra("FROM_LOGIN", false)
+        val userIdFromIntent = intent.getStringExtra("USER_ID")
+
+        if (comingFromLogin && userIdFromIntent != null) {
+            Log.d(TAG, "Activity launched from login with USER_ID: $userIdFromIntent. Forcing data fetch for this user.")
+            viewModel.fetchUserData(forcedUserId = userIdFromIntent)
+        } else {
+            Log.d(TAG, "Activity not launched from login or USER_ID not provided, ViewModel will use default fetch logic.")
+            // ViewModel's init block already calls fetchUserData() which will use currentUser by default
+        }
+
+        // Enable edge-to-edge display for a modern look
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
         // Read dark mode preference from SharedPreferences
         val prefs = getSharedPreferences("daktar_prefs", MODE_PRIVATE)
+
         setContent {
             // Hoist dark mode state to Compose and sync with SharedPreferences
             var isDarkTheme by remember { mutableStateOf(prefs.getBoolean("dark_mode", false)) }
+
             DaktarSaabTheme(darkTheme = isDarkTheme) {
                 DashboardScreen(
                     isDarkTheme = isDarkTheme,
                     onThemeToggle = { dark ->
                         isDarkTheme = dark
                         prefs.edit().putBoolean("dark_mode", dark).apply()
-                    }
+                    },
+                    viewModel = viewModel
                 )
             }
         }
@@ -91,7 +127,8 @@ class DashboardActivity : ComponentActivity() {
 @Composable
 fun DashboardScreen(
     onThemeToggle: (Boolean) -> Unit, // Callback to toggle theme
-    isDarkTheme: Boolean // Current theme state
+    isDarkTheme: Boolean, // Current theme state
+    viewModel: DashboardViewModel // Dashboard ViewModel
 ) {
     // States to control animated visibility for Home content
     var showServiceGrid by remember { mutableStateOf(false) }
@@ -102,10 +139,9 @@ fun DashboardScreen(
     // State to control animated visibility for Utilities content
     var showUtilitiesContent by remember { mutableStateOf(false) }
 
-    // Use rememberSaveable to persist the state across configuration changes and process death
+    // Use rememberSaveable to persist the state across configuration changes
     var showNavBar by rememberSaveable { mutableStateOf(false) }
-    var initialLoad by rememberSaveable { mutableStateOf(true) } // To control initial animation sequence
-
+    var initialLoad by rememberSaveable { mutableStateOf(true) } // For initial animation sequence
 
     // State for selected navigation item
     var selectedNavItem by remember { mutableStateOf(0) }
@@ -113,8 +149,7 @@ fun DashboardScreen(
     val context = LocalContext.current // Hoist context to composable scope
 
     // LaunchedEffect to trigger animations sequentially after a delay
-    // This effect runs only once when `initialLoad` is true
-    LaunchedEffect(initialLoad, selectedNavItem) { // Add selectedNavItem as a key
+    LaunchedEffect(initialLoad, selectedNavItem) {
         if (initialLoad) {
             delay(300)
             showServiceGrid = true
@@ -164,6 +199,7 @@ fun DashboardScreen(
         }
     }
 
+<<<<<<< HEAD
     DaktarSaabTheme(darkTheme = isDarkTheme) {
         Scaffold(
             topBar = {
@@ -171,168 +207,203 @@ fun DashboardScreen(
                     title = {
                         Text(
                             text = if (selectedNavItem == 1) "Utilities" else "Dashboard"
+=======
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = when (selectedNavItem) {
+                            1 -> "Utilities"
+                            3 -> "Profile"
+                            else -> "Dashboard"
+                        }
+                    )
+                },
+                actions = {
+                    // Theme Toggle Button
+                    IconButton(onClick = { onThemeToggle(!isDarkTheme) }) {
+                        Icon(
+                            painter = painterResource(
+                                id = if (isDarkTheme)
+                                    R.drawable.baseline_light_mode_24
+                                else
+                                    R.drawable.baseline_dark_mode_24
+                            ),
+                            contentDescription = if (isDarkTheme) "Switch to Light Mode" else "Switch to Dark Mode"
+>>>>>>> d72206d09717a8581f6e5129dc331eae0a61bccc
                         )
-                    },
-                    actions = {
-                        // Theme Toggle Button
-                        IconButton(onClick = { onThemeToggle(!isDarkTheme) }) {
-                            Icon(
-                                painter = painterResource(
-                                    id = if (isDarkTheme)
-                                        R.drawable.baseline_light_mode_24
-                                    else
-                                        R.drawable.baseline_dark_mode_24
-                                ),
-                                contentDescription = if (isDarkTheme) "Switch to Light Mode" else "Switch to Dark Mode"
+                    }
+
+                    // Profile image in the top app bar
+                    val userImageUrl by viewModel.userProfileImageUrl.observeAsState()
+
+                    // Use AsyncImage to load the user's profile image from Cloudinary
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 16.dp)
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .clickable { selectedNavItem = 3 } // Navigate to profile tab when clicked
+                    ) {
+                        if (userImageUrl != null && userImageUrl!!.isNotEmpty()) {
+                            // If we have a valid image URL, load it with AsyncImage
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(userImageUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Profile",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            // If no image URL is available, show the default person icon
+                            Image(
+                                painter = painterResource(id = R.drawable.baseline_person_24),
+                                contentDescription = "Profile",
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
-                        // Profile icon in the top app bar
-                        Image(
-                            painter = painterResource(id = R.drawable.baseline_person_24), // Replace with your profile icon
-                            contentDescription = "Profile",
-                            modifier = Modifier
-                                .padding(end = 16.dp)
-                                .size(36.dp)
-                                .clip(CircleShape) // Clip to a circle shape
-                        )
-                    }
-                )
-            },
-            bottomBar = {
-                // Animated visibility for the NavigationBar
-                AnimatedVisibility(
-                    visible = showNavBar,
-                    enter = slideInVertically(
-                        initialOffsetY = { it }, // Slide in from bottom
-                        animationSpec = tween(durationMillis = 500)
-                    ) + fadeIn(animationSpec = tween(durationMillis = 500)),
-                    exit = slideOutVertically(
-                        targetOffsetY = { it }, // Slide out to bottom
-                        animationSpec = tween(durationMillis = 500)
-                    ) + fadeOut(animationSpec = tween(durationMillis = 500))
-                ) {
-                    // Customizing Navbar colors and properties for a modern look
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp), // Use surface color with elevation
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        tonalElevation = 8.dp, // Add some elevation
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp, vertical = 8.dp) // Adjusted padding
-                            .clip(RoundedCornerShape(24.dp)) // More rounded corners
-                    ) {
-                        // Home
-                        NavigationBarItem(
-                            selected = selectedNavItem == 0,
-                            onClick = {
-                                if (selectedNavItem != 0) { // Only recreate if not already on Home
-                                    selectedNavItem = 0
-                                }
-                                // No recreate if it's the initial load or already on Home
-                                if (!initialLoad && context is DashboardActivity) {
-                                    context.recreate()
-                                }
-                            },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.baseline_home_24),
-                                    contentDescription = "Home"
-                                )
-                            },
-                            label = { Text("Home") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary, // More vibrant primary color
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) // Lighter indicator
-                            )
-                        )
-                        // Utilities
-                        NavigationBarItem(
-                            selected = selectedNavItem == 1,
-                            onClick = { selectedNavItem = 1 },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.baseline_handyman_24), // Example icon for utilities
-                                    contentDescription = "Utilities"
-                                )
-                            },
-                            label = { Text("Utilities") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                            )
-                        )
-                        // Chatbot
-                        NavigationBarItem(
-                            selected = false, // Chatbot is never "selected" in the dashboard UI
-                            onClick = {
-                                // Launch ChatbotActivity directly without changing selectedNavItem
-                                // This prevents the Dashboard's content from briefly switching
-                                // to a blank state before the new activity opens.
-                                context.startActivity(Intent(context, ChatbotActivity::class.java))
-                            },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.baseline_android_24), // Android bot icon
-                                    contentDescription = "Chatbot"
-                                )
-                            },
-                            label = { Text("Chatbot") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                            )
-                        )
-                        // Profile
-                        NavigationBarItem(
-                            selected = selectedNavItem == 3,
-                            onClick = { selectedNavItem = 3 },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.baseline_person_pin_24),
-                                    contentDescription = "Profile"
-                                )
-                            },
-                            label = { Text("Profile") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                            )
-                        )
                     }
                 }
-            }
-        ) { innerPadding ->
-            // **Apply verticalScroll to the main Column**
-            Column(
-                modifier = Modifier
-                    .padding(innerPadding) // Apply padding from Scaffold
-                    .padding(horizontal = 16.dp) // Additional horizontal padding for content
-                    .fillMaxSize() // Fill the available size
-                    .verticalScroll(rememberScrollState()), // **Make the column scrollable**
-                verticalArrangement = Arrangement.spacedBy(20.dp) // Spacing between vertical elements
+            )
+        },
+        bottomBar = {
+            // Animated visibility for the NavigationBar
+            AnimatedVisibility(
+                visible = showNavBar,
+                enter = slideInVertically(
+                    initialOffsetY = { it }, // Slide in from bottom
+                    animationSpec = tween(durationMillis = 500)
+                ) + fadeIn(animationSpec = tween(durationMillis = 500)),
+                exit = slideOutVertically(
+                    targetOffsetY = { it }, // Slide out to bottom
+                    animationSpec = tween(durationMillis = 500)
+                ) + fadeOut(animationSpec = tween(durationMillis = 500))
             ) {
-                // Display content based on selectedNavItem
-                when (selectedNavItem) {
-                    0 -> HomeContent(
-                        showServiceGrid = showServiceGrid,
-                        showMedicalArticles = showMedicalArticles,
-                        showRecentHistoryLabel = showRecentHistoryLabel,
-                        showRecentHistory = showRecentHistory
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    tonalElevation = 8.dp,
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                ) {
+                    // Home
+                    NavigationBarItem(
+                        selected = selectedNavItem == 0,
+                        onClick = {
+                            selectedNavItem = 0
+                            // No recreate needed, compose handles state changes
+                        },
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_home_24),
+                                contentDescription = "Home"
+                            )
+                        },
+                        label = { Text("Home") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
                     )
-                    1 -> UtilitiesContent(showUtilitiesContent = showUtilitiesContent) // Pass animation state
-                    // No content for selectedNavItem == 2 (Chatbot) as it launches a new activity
-                    3 -> ProfileContent() // Placeholder for Profile content
+                    // Utilities
+                    NavigationBarItem(
+                        selected = selectedNavItem == 1,
+                        onClick = { selectedNavItem = 1 },
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_handyman_24),
+                                contentDescription = "Utilities"
+                            )
+                        },
+                        label = { Text("Utilities") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
+                    )
+                    // Chatbot
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = {
+                            try {
+                                val intent = Intent(context, Class.forName("com.example.daktarsaab.view.ChatbotActivity"))
+                                val user = viewModel.userData.value
+                                val profileUrl = viewModel.userProfileImageUrl.value
+                                intent.putExtra("USER_NAME", user?.firstName ?: "User") // Changed to pass only firstName
+                                intent.putExtra("PROFILE_IMAGE_URL", profileUrl)
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                // Handle exception if class not found
+                                Log.e("DashboardScreen", "Error starting ChatbotActivity", e)
+                            }
+                        },
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_android_24),
+                                contentDescription = "Chatbot"
+                            )
+                        },
+                        label = { Text("Chatbot") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
+                    )
+                    // Profile
+                    NavigationBarItem(
+                        selected = selectedNavItem == 3,
+                        onClick = { selectedNavItem = 3 },
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_person_pin_24),
+                                contentDescription = "Profile"
+                            )
+                        },
+                        label = { Text("Profile") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        )
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(16.dp)) // Add some space at the bottom for the navbar
             }
         }
+<<<<<<< HEAD
+=======
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            when (selectedNavItem) {
+                0 -> HomeContent(
+                    showServiceGrid = showServiceGrid,
+                    showMedicalArticles = showMedicalArticles,
+                    showRecentHistoryLabel = showRecentHistoryLabel,
+                    showRecentHistory = showRecentHistory
+                )
+                1 -> UtilitiesContent(showUtilitiesContent = showUtilitiesContent)
+                3 -> ProfileContent(viewModel = viewModel)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+>>>>>>> d72206d09717a8581f6e5129dc331eae0a61bccc
     }
 }
 
+// Implement missing composables
 @Composable
 fun HomeContent(
     showServiceGrid: Boolean,
@@ -340,26 +411,23 @@ fun HomeContent(
     showRecentHistoryLabel: Boolean,
     showRecentHistory: Boolean
 ) {
-    // Animated visibility for Service Grid
     AnimatedVisibility(
         visible = showServiceGrid,
         enter = slideInVertically(
-            initialOffsetY = { -it / 2 }, // Slide in from top
+            initialOffsetY = { -it / 2 },
             animationSpec = tween(durationMillis = 500)
-        ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
+        ) + fadeIn(animationSpec = tween(durationMillis = 500))
     ) {
-        ServiceGrid() // Composable for service cards
+        ServiceGrid()
     }
 
-    // Animated visibility for Medical Articles
     AnimatedVisibility(
         visible = showMedicalArticles,
         enter = slideInHorizontally(
-            initialOffsetX = { -it }, // Slide in from left
+            initialOffsetX = { -it },
             animationSpec = tween(durationMillis = 500)
-        ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
+        ) + fadeIn(animationSpec = tween(durationMillis = 500))
     ) {
-        // List of medical articles to display
         val articles = remember {
             listOf(
                 MedicalArticle(
@@ -377,183 +445,68 @@ fun HomeContent(
                 MedicalArticle(
                     title = "Nutrition Guides",
                     subtitle = "Eat well, live long",
-                    link = "https://www.facebook.com", // Example link
+                    link = "https://www.facebook.com",
                     iconResId = R.drawable.baseline_fastfood_24
                 )
             )
         }
-        MedicalArticlesCard(articles = articles) // Composable for medical articles carousel
+        MedicalArticlesCard(articles = articles)
     }
 
-    // Animated visibility for "Recent History" label
     AnimatedVisibility(
         visible = showRecentHistoryLabel,
-        enter = fadeIn(animationSpec = tween(durationMillis = 300)) // Simply fade in
+        enter = fadeIn(animationSpec = tween(durationMillis = 300))
     ) {
-        Text("Recent History", style = MaterialTheme.typography.titleMedium)
-    }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // State to track whether to show all appointments or just the first two
+            var showAllAppointments by remember { mutableStateOf(false) }
 
-    // Animated visibility for Recent History content
-    AnimatedVisibility(
-        visible = showRecentHistory,
-        enter = slideInVertically(
-            initialOffsetY = { it }, // Slide in from bottom
-            animationSpec = tween(durationMillis = 500)
-        ) + fadeIn(animationSpec = tween(durationMillis = 500)) // Fade in
-    ) {
-        RecentHistory() // Composable for recent history list
-    }
-}
-
-@Composable
-fun UtilitiesContent(showUtilitiesContent: Boolean) {
-    val context = LocalContext.current
-
-    // List of utility items
-    val utilities = remember {
-        listOf(
-            UtilityItem(
-                title = "Reminders",
-                description = "Never miss a dose or appointment again. Your health, on schedule!",
-                iconResId = R.drawable.baseline_alarm_24,
-                targetActivity = ReminderActivity::class.java,
-                onClick = { context.startActivity(Intent(it, ReminderActivity::class.java)) }
-            ),
-            UtilityItem(
-                title = "Emergency Contact",
-                description = "Connect instantly to life-saving services and your trusted contacts.",
-                iconResId = R.drawable.baseline_local_hospital_24,
-                targetActivity = EmergencyCallActivity::class.java,
-                onClick = { context.startActivity(Intent(it, EmergencyCallActivity::class.java)) }
-            ),
-            UtilityItem(
-                title = "Symptom Analyzer",
-                description = "Understand your symptoms better. Get insights before you consult.",
-                iconResId = R.drawable.baseline_search_24, // Using a search icon for symptom analysis
-                targetActivity = SymptomAnalayzes::class.java, // Link to your existing SymptomAnalayzes
-                onClick = { context.startActivity(Intent(it, SymptomAnalayzes::class.java)) }
-            )
-            // Add more utility items here
-        )
-    }
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Animated Introductory Text
-        AnimatedVisibility(
-            visible = showUtilitiesContent,
-            enter = fadeIn(animationSpec = tween(durationMillis = 300, delayMillis = 100)) +
-                    slideInVertically(initialOffsetY = { -it / 2 }, animationSpec = tween(durationMillis = 400, delayMillis = 100))
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Your Health, Your Tools!",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold, // Make it extra bold for impact
-                    color = MaterialTheme.colorScheme.primary, // Use primary color for the main heading
-                    modifier = Modifier.padding(bottom = 8.dp) // Increased bottom padding
-                )
-                Text(
-                    text = "Dive into our practical tools designed to support your well-being, from timely reminders to immediate emergency support and smart symptom analysis",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 24.sp,
-                    textAlign = TextAlign.Center, // Center align the text
-                    modifier = Modifier.padding(horizontal = 8.dp) // Add horizontal padding
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
-
-
-        // Animated visibility for each utility card
-        utilities.forEachIndexed { index, item ->
-            AnimatedVisibility(
-                visible = showUtilitiesContent,
-                enter = fadeIn(animationSpec = tween(durationMillis = 300, delayMillis = 200 + index * 100)) +
-                        slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(durationMillis = 400, delayMillis = 200 + index * 100)),
-                modifier = Modifier.fillMaxWidth()
+            // Row to contain both the title and the "View All" button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                UtilityCard(item = item)
+                Text("Recent History", style = MaterialTheme.typography.titleMedium)
+
+                // View All toggle button
+                Row(
+                    modifier = Modifier
+                        .clickable { showAllAppointments = !showAllAppointments }
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "View All",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Icon(
+                        painter = painterResource(id = R.drawable.baseline_swipe_down_24),
+                        contentDescription = "Toggle Appointments View",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = showRecentHistory,
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(durationMillis = 500)
+                ) + fadeIn(animationSpec = tween(durationMillis = 500))
+            ) {
+                RecentHistory(showAllAppointments)
             }
         }
-    }
-}
-
-@Composable
-fun UtilityCard(item: UtilityItem) {
-    val context = LocalContext.current
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp)
-            .clickable {
-                item.onClick?.invoke(context)
-                // Or if using targetActivity directly:
-                // item.targetActivity?.let { activityClass ->
-                //     context.startActivity(Intent(context, activityClass))
-                // }
-            },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant) // A versatile background color
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    item.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    item.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                )
-            }
-            Icon(
-                painter = painterResource(id = item.iconResId),
-                contentDescription = item.title,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.primary // Use primary color for icons for consistency
-            )
-        }
-    }
-}
-
-
-@Composable
-fun ProfileContent() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("Profile Section Coming Soon!", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
-        Icon(
-            painter = painterResource(id = R.drawable.baseline_construction_24), // Under construction icon
-            contentDescription = "Under Construction",
-            modifier = Modifier.size(96.dp),
-            tint = MaterialTheme.colorScheme.onBackground
-        )
     }
 }
 
 @Composable
 fun ServiceGrid() {
-    // List of services with their titles and Lottie animation asset names
     val services = listOf(
         Pair("X-ray Scan", "xray.json"),
         Pair("Symptom Analyzer", "search.json"),
@@ -562,19 +515,15 @@ fun ServiceGrid() {
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Arrange service cards in rows of two
         for (i in services.indices step 2) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // First service card in the row
                 ServiceCard(services[i].first, services[i].second, Modifier.weight(1f))
-                // Check if there's a second service for the row
                 if (i + 1 < services.size) {
                     ServiceCard(services[i + 1].first, services[i + 1].second, Modifier.weight(1f))
                 } else {
-                    // Add a Spacer if there's only one card in the last row
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
@@ -585,15 +534,15 @@ fun ServiceGrid() {
 @Composable
 fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
     val context = LocalContext.current
-    // For X-ray Scan, we want it to loop forever, others play once.
     val playLottieForever = title == "X-ray Scan"
+    val viewModel: DashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel() // Get ViewModel instance
 
     val composition by rememberLottieComposition(LottieCompositionSpec.Asset(assetName))
     val progress by animateLottieCompositionAsState(
         composition,
         iterations = if (playLottieForever) LottieConstants.IterateForever else 1,
         speed = 1f,
-        restartOnPlay = false // Ensure it doesn't restart when it's supposed to be static
+        restartOnPlay = false
     )
 
     Card(
@@ -602,19 +551,32 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
             .height(160.dp)
             .fillMaxWidth()
             .clickable {
-                when (title) {
-                    "X-ray Scan" -> {
-                        context.startActivity(Intent(context, XrayAnalysisActivity::class.java))
+                try {
+                    when (title) {
+                        "X-ray Scan" -> {
+                            context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.XrayAnalysisActivity")))
+                        }
+                        "Symptom Analyzer" -> {
+                            context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.SymptomAnalayzes")))
+                        }
+                        "Maps" -> {
+                            val intent = Intent(context, Class.forName("com.example.daktarsaab.view.MapsActivity"))
+                            val user = viewModel.userData.value
+                            val profileUrl = viewModel.userProfileImageUrl.value
+                            intent.putExtra("USER_NAME", user?.firstName ?: "User")
+                            intent.putExtra("PROFILE_IMAGE_URL", profileUrl)
+                            // Pass the current theme state
+                            val prefs = context.getSharedPreferences("daktar_prefs", Context.MODE_PRIVATE) // Changed to Context.MODE_PRIVATE
+                            intent.putExtra("IS_DARK_THEME", prefs.getBoolean("dark_mode", false))
+                            context.startActivity(intent)
+                        }
+                        "Doctor Booking" -> {
+                            context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.DoctorBookActivity")))
+                        }
                     }
-                    "Symptom Analyzer" -> {
-                        context.startActivity(Intent(context, SymptomAnalayzes::class.java))
-                    }
-                    "Maps" -> {
-                        context.startActivity(Intent(context, MapsActivity::class.java))
-                    }
-                    "Doctor Booking" -> {
-                        context.startActivity(Intent(context, DoctorBookActivity::class.java))
-                    }
+                } catch (e: Exception) {
+                    // Handle class not found exception
+                    Log.e("ServiceCard", "Error starting activity for $title", e)
                 }
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -647,24 +609,23 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
 @OptIn(ExperimentalPagerApi::class)
 @Composable
 fun MedicalArticlesCard(articles: List<MedicalArticle>) {
-    val pagerState = rememberPagerState(initialPage = 0) // State for the horizontal pager
-    val context = LocalContext.current // Get current context to launch intents
+    val pagerState = rememberPagerState(initialPage = 0)
+    val context = LocalContext.current
 
-    // Auto-scroll the pager every 5 seconds
     LaunchedEffect(pagerState) {
         while (true) {
-            delay(5000) // Delay for 5 seconds
+            delay(5000)
             val nextPage = (pagerState.currentPage + 1) % articles.size
-            pagerState.animateScrollToPage(nextPage) // Scroll to the next page
+            pagerState.animateScrollToPage(nextPage)
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp) // Fixed height for the articles card
-            .clip(RoundedCornerShape(16.dp)) // Rounded corners
-            .background(MaterialTheme.colorScheme.primary), // Use primary color from theme
+            .height(180.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.primary),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         HorizontalPager(
@@ -672,7 +633,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f) // Take up available vertical space
+                .weight(1f)
         ) { page ->
             val article = articles[page]
             Row(
@@ -686,15 +647,13 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    // "Explore!" text with an arrow, clickable to open the article link
                     Row(
                         modifier = Modifier.clickable {
                             try {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(article.link))
-                                context.startActivity(intent) // Open URL in browser
+                                context.startActivity(intent)
                             } catch (e: Exception) {
-                                e.printStackTrace() // Log any errors
-                                // Optionally show a Toast message here for the user
+                                e.printStackTrace()
                             }
                         },
                         verticalAlignment = Alignment.CenterVertically,
@@ -708,7 +667,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Icon(
-                            painter = painterResource(id = R.drawable.baseline_arrow_forward_24), // Forward arrow icon
+                            painter = painterResource(id = R.drawable.baseline_arrow_forward_24),
                             contentDescription = "Explore link",
                             tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(24.dp)
@@ -716,7 +675,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
                     }
                     Text(
                         text = article.title,
-                        color = MaterialTheme.colorScheme.inversePrimary, // Use a contrasting color from theme
+                        color = MaterialTheme.colorScheme.inversePrimary,
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
@@ -725,7 +684,6 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-                // Icon for the medical article
                 Icon(
                     painter = painterResource(id = article.iconResId),
                     contentDescription = null,
@@ -735,12 +693,10 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
             }
         }
 
-        // Pager indicator dots
         HorizontalPagerIndicator(
             pagerState = pagerState,
             pageCount = articles.size,
-            modifier = Modifier
-                .padding(vertical = 8.dp),
+            modifier = Modifier.padding(vertical = 8.dp),
             activeColor = MaterialTheme.colorScheme.onPrimary,
             inactiveColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f),
             indicatorWidth = 8.dp,
@@ -751,27 +707,28 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
 }
 
 @Composable
-fun RecentHistory() {
-    // Dummy data for recent appointments - now with more entries
+fun RecentHistory(showAllAppointments: Boolean) {
     val appointments = listOf(
         "Appointment 1: Kathmandu - Dr. Sharma (Cardiologist)",
         "Appointment 2: Lalitpur - Dr. Basnet (Dermatologist)",
         "Appointment 3: Bhaktapur - Dr. Thapa (Pediatrician)",
         "Appointment 4: Chitwan - Dr. Koirala (Orthopedic)",
-        "Appointment 5: Pokhara - Dr. Gurung (Dentist)",
-        "Appointment 6: Biratnagar - Dr. Poudel (Neurologist)",
-        "Appointment 7: Butwal - Dr. Rai (Ophthalmologist)",
-        "Appointment 8: Dharan - Dr. Limbu (ENT Specialist)",
-        "Appointment 9: Janakpur - Dr. Yadav (General Physician)",
-        "Appointment 10: Dhangadhi - Dr. Chaudhary (Psychiatrist)"
+        "Appointment 5: Pokhara - Dr. Gurung (Dentist)"
     )
 
-    // Using LazyColumn to make the list scrollable
-    LazyColumn(
+    // Calculate which appointments to show based on the state
+    val appointmentsToShow = if (showAllAppointments) {
+        appointments
+    } else {
+        appointments.take(2)
+    }
+
+    // Fixed height column instead of LazyColumn to prevent scrolling
+    Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.heightIn(max = 400.dp) // Example: limit height to 400.dp
+        modifier = Modifier.fillMaxWidth()
     ) {
-        items(appointments) { appointment ->
+        appointmentsToShow.forEach { appointment ->
             Card(
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(4.dp),
@@ -787,16 +744,300 @@ fun RecentHistory() {
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(appointment, style = MaterialTheme.typography.titleSmall)
-                        // You can parse the appointment string to get a more specific location if needed
                         Text("Details available upon click", style = MaterialTheme.typography.bodySmall)
                     }
                     Button(
-                        onClick = { /* TODO: Handle Report click */ } // Placeholder for report button action
+                        onClick = { /* Handle Report click */ }
                     ) {
                         Text("Report")
                     }
                 }
             }
         }
+
+        // Show a message when there are more appointments to see but not showing all
+        if (!showAllAppointments && appointments.size > 2) {
+
+        }
+    }
+}
+
+@Composable
+fun UtilitiesContent(showUtilitiesContent: Boolean) {
+    val context = LocalContext.current
+
+    val utilities = remember {
+        listOf(
+            UtilityItem(
+                title = "Reminders",
+                description = "Never miss a dose or appointment again. Your health, on schedule!",
+                iconResId = R.drawable.baseline_alarm_24,
+                onClick = { ctx ->
+                    try {
+                        ctx.startActivity(Intent(ctx, Class.forName("com.example.daktarsaab.view.ReminderActivity")))
+                    } catch (e: Exception) {
+                        // Handle exception
+                    }
+                }
+            ),
+            UtilityItem(
+                title = "Emergency Contact",
+                description = "Connect instantly to life-saving services and your trusted contacts.",
+                iconResId = R.drawable.baseline_local_hospital_24,
+                onClick = { ctx ->
+                    try {
+                        ctx.startActivity(Intent(ctx, Class.forName("com.example.daktarsaab.view.EmergencyCallActivity")))
+                    } catch (e: Exception) {
+                        // Handle exception
+                    }
+                }
+            ),
+            UtilityItem(
+                title = "Symptom Analyzer",
+                description = "Understand your symptoms better. Get insights before you consult.",
+                iconResId = R.drawable.baseline_search_24,
+                onClick = { ctx ->
+                    try {
+                        ctx.startActivity(Intent(ctx, Class.forName("com.example.daktarsaab.view.SymptomAnalayzes")))
+                    } catch (e: Exception) {
+                        // Handle exception
+                    }
+                }
+            )
+        )
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        AnimatedVisibility(
+            visible = showUtilitiesContent,
+            enter = fadeIn(animationSpec = tween(durationMillis = 300, delayMillis = 100)) +
+                    slideInVertically(initialOffsetY = { -it / 2 }, animationSpec = tween(durationMillis = 400, delayMillis = 100))
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Your Health, Your Tools!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Text(
+                    text = "Dive into our practical tools designed to support your well-being, from timely reminders to immediate emergency support and smart symptom analysis",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 24.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+
+        utilities.forEachIndexed { index, item ->
+            AnimatedVisibility(
+                visible = showUtilitiesContent,
+                enter = fadeIn(animationSpec = tween(durationMillis = 300, delayMillis = 200 + index * 100)) +
+                        slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(durationMillis = 400, delayMillis = 200 + index * 100)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                UtilityCard(item = item)
+            }
+        }
+    }
+}
+
+@Composable
+fun UtilityCard(item: UtilityItem) {
+    val context = LocalContext.current
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .clickable { item.onClick?.invoke(context) },
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    item.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    item.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                )
+            }
+            Icon(
+                painter = painterResource(id = item.iconResId),
+                contentDescription = item.title,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+fun ProfileContent(viewModel: DashboardViewModel) { // Removed default viewModel instance
+    val userProfileImageUrl by viewModel.userProfileImageUrl.observeAsState()
+    val userData by viewModel.userData.observeAsState()
+
+    // Add a LaunchedEffect to log the image URL from the ProfileContent composable
+    LaunchedEffect(userProfileImageUrl, userData) { // Observe changes to these states
+        Log.d("ProfileContent", "Profile image URL in ProfileContent: $userProfileImageUrl")
+        Log.d("ProfileContent", "User data in ProfileContent: FirstName: ${userData?.firstName}, Email: ${userData?.email}")
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top // Align content to the top
+    ) {
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Profile Image
+        userProfileImageUrl?.let { imageUrl ->
+            if (imageUrl.isNotEmpty()) {
+                Log.d("ProfileContent", "Displaying image from URL: $imageUrl")
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(imageUrl)
+                        .crossfade(true)
+                        .error(R.drawable.baseline_person_24) // Fallback for error
+                        .placeholder(R.drawable.baseline_person_24) // Placeholder while loading
+                        .build(),
+                    contentDescription = "User Profile Image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(120.dp) // Increased size
+                        .clip(CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                )
+            } else {
+                Log.d("ProfileContent", "Image URL is empty, showing default person icon")
+                DefaultProfileIcon(size = 120.dp)
+            }
+        } ?: run {
+            Log.d("ProfileContent", "No image URL, showing default person icon")
+            DefaultProfileIcon(size = 120.dp)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // User Name
+        userData?.let {
+            Text(
+                text = "${it.firstName} ${it.lastName}",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            // User Email
+            Text(
+                text = it.email,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } ?: run {
+            // Placeholder if user data is not yet available
+            Text(
+                text = "Loading user data...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        Divider()
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Reports Section (Placeholder)
+        ProfileSectionItem(title = "My Reports", icon = R.drawable.baseline_assessment_24) {
+            // TODO: Navigate to Reports Screen or show reports content
+            Log.d("ProfileContent", "My Reports clicked")
+        }
+        ProfileSectionItem(title = "Edit Profile", icon = R.drawable.baseline_edit_24) {
+            // TODO: Navigate to Edit Profile Screen
+            Log.d("ProfileContent", "Edit Profile clicked")
+        }
+
+        // Get context reference outside the ProfileSectionItem
+        val context = LocalContext.current
+
+        ProfileSectionItem(title = "Logout", icon = R.drawable.baseline_logout_24, isDestructive = true) {
+            // Direct logout to login screen without splash animation
+            try {
+                // Create intent for LoginActivity
+                val intent = Intent(context, Class.forName("com.example.daktarsaab.view.LoginActivity"))
+                // Clear back stack so user can't go back with back button
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                context.startActivity(intent)
+                // Finish current activity
+                (context as? ComponentActivity)?.finish()
+            } catch (e: Exception) {
+                Log.e("ProfileContent", "Error navigating to login screen", e)
+            }
+        }
+
+    }
+}
+
+@Composable
+fun DefaultProfileIcon(size: Dp) {
+    Icon(
+        painter = painterResource(id = R.drawable.baseline_person_24),
+        contentDescription = "Default Profile Image",
+        modifier = Modifier.size(size).clip(CircleShape),
+        tint = MaterialTheme.colorScheme.primaryContainer
+    )
+}
+
+@Composable
+fun ProfileSectionItem(title: String, icon: Int, isDestructive: Boolean = false, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = title,
+            tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Icon(
+            painter = painterResource(id = R.drawable.baseline_arrow_forward_ios_24),
+            contentDescription = "Go to $title",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp)
+        )
     }
 }

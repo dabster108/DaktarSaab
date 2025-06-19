@@ -59,8 +59,11 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            // Removed redundant ORMLite exclusion if not specifically needed for packaging
-            // excludes += "com/j256/ormlite/core/README.txt"
+            // Exclude duplicate license files from mail libraries
+            excludes += "/META-INF/LICENSE.md"
+            excludes += "/META-INF/LICENSE.txt"
+            excludes += "/META-INF/NOTICE.md"
+            excludes += "/META-INF/NOTICE.txt"
         }
     }
 }
@@ -75,7 +78,11 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.database)
     implementation(libs.compose.ui.graphics)
+    implementation("com.google.firebase:firebase-auth:23.2.1")
     androidTestImplementation(platform(libs.compose.bom))
+
+    // Cloudinary SDK for image upload
+    implementation("com.cloudinary:cloudinary-android:2.3.1")
 
     implementation(libs.core.ktx)
     implementation(libs.activity.compose)
@@ -85,7 +92,14 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.extended)
 
+    // Add Compose-LiveData integration
+    implementation(libs.androidx.runtime.livedata)
+
     implementation(libs.material) // Added Material Components for Android
+
+    // JavaMail API for SMTP email sending
+    implementation("com.sun.mail:android-mail:1.6.7")
+    implementation("com.sun.mail:android-activation:1.6.7")
 
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
@@ -100,6 +114,9 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.lottie.compose)
+
+    // Google Sign-In dependency
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
 
     implementation(libs.retrofit)
     implementation(libs.converter.gson)

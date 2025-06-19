@@ -55,6 +55,10 @@ class SignupActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+<<<<<<< HEAD
+=======
+        window.statusBarColor = getColor(R.color.black)
+>>>>>>> d72206d09717a8581f6e5129dc331eae0a61bccc
 
         // Initialize ViewModel
         viewModel = ViewModelProvider(this)[SignupViewModel::class.java]
@@ -88,8 +92,14 @@ class SignupActivity : ComponentActivity() {
                         is SignupState.VerificationComplete -> {
                             VerificationCompleteScreen(
                                 onContinue = {
+<<<<<<< HEAD
                                     // Navigate to login screen
                                     val intent = Intent(this@SignupActivity, LoginActivity::class.java)
+=======
+                                    // Navigate to login screen with FROM_SIGNUP flag
+                                    val intent = Intent(this@SignupActivity, LoginActivity::class.java)
+                                    intent.putExtra("FROM_SIGNUP", true) // Add this flag to skip splash animation
+>>>>>>> d72206d09717a8581f6e5129dc331eae0a61bccc
                                     startActivity(intent)
                                     finish()
                                 },
@@ -100,6 +110,10 @@ class SignupActivity : ComponentActivity() {
                             SignupScreen(
                                 onLoginClick = {
                                     val intent = Intent(this@SignupActivity, LoginActivity::class.java)
+<<<<<<< HEAD
+=======
+                                    intent.putExtra("FROM_SIGNUP", true) // Add flag to skip splash animation
+>>>>>>> d72206d09717a8581f6e5129dc331eae0a61bccc
                                     startActivity(intent)
                                     finish()
                                 },
@@ -466,12 +480,21 @@ fun SignupScreen(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     enabled = !isSigningUp &&
+<<<<<<< HEAD
                             firstName.isNotBlank() &&
                             lastName.isNotBlank() &&
                             email.isNotBlank() &&
                             password.isNotBlank() &&
                             confirmPassword.isNotBlank() &&
                             password == confirmPassword
+=======
+                             firstName.isNotBlank() &&
+                             lastName.isNotBlank() &&
+                             email.isNotBlank() &&
+                             password.isNotBlank() &&
+                             confirmPassword.isNotBlank() &&
+                             password == confirmPassword
+>>>>>>> d72206d09717a8581f6e5129dc331eae0a61bccc
                 ) {
                     if (isSigningUp) {
                         CircularProgressIndicator(

@@ -1,22 +1,14 @@
 package com.example.daktarsaab.view
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme.colorScheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.daktarsaab.ui.theme.DaktarSaabTheme
+import com.example.daktarsaab.R
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+<<<<<<< HEAD
         enableEdgeToEdge()
         setContent {
             DaktarSaabTheme {
@@ -45,4 +37,13 @@ fun GreetingPreview() {
     DaktarSaabTheme {
         Greeting("Android")
     }
+=======
+        window.statusBarColor = getColor(R.color.black)
+
+        // Immediately redirect to LoginActivity
+        val intent = Intent(this, LoginActivity::class.java)
+        startActivity(intent)
+        finish()
+    }
+>>>>>>> d72206d09717a8581f6e5129dc331eae0a61bccc
 }

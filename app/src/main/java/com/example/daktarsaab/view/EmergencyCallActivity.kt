@@ -90,6 +90,7 @@ data class PagerContentDetail(val title: String, val content: String)
 class EmergencyCallActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = getColor(R.color.black)
         enableEdgeToEdge() // Enables edge-to-edge display for a more immersive experience
         setContent {
             // Move the state and theme logic inside the Composable scope
