@@ -65,17 +65,22 @@
 >>>>>>> 20a123741e00a284c15467acfc8c1f83aec4ec4c
 =======
 
-        <!-- Only LoginActivity should have the LAUNCHER category as the main entry point -->
         <activity
-            android:name=".view.LoginActivity"
+            android:name=".view.SplashActivity"
             android:exported="true"
-            android:label="@string/title_activity_login"
+            android:noHistory="true"
             android:theme="@style/Theme.DaktarSaab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".view.LoginActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.DaktarSaab" />
 
         <!-- Other activities without LAUNCHER category -->
 >>>>>>> ba5cdf5c56fa98ac9a1f45106d14294b2a2aa12c

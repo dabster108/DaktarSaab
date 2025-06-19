@@ -53,6 +53,7 @@ import androidx.lifecycle.LifecycleOwner
 class DoctorBookActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = getColor(R.color.black)
         enableEdgeToEdge()
         // Read dark mode preference from SharedPreferences
         val prefs = getSharedPreferences("daktar_prefs", MODE_PRIVATE)

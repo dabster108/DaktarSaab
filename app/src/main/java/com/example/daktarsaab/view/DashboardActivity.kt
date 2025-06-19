@@ -1,8 +1,10 @@
 package com.example.daktarsaab.view
 
+import android.content.Context // Added import for Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
@@ -15,35 +17,42 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModelProvider
+import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
+import com.example.daktarsaab.viewmodel.DashboardViewModel
 import com.google.accompanist.pager.*
 import kotlinx.coroutines.delay
-
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.text.style.TextAlign
 
 
 // Data class for Medical Articles
@@ -65,8 +74,30 @@ data class UtilityItem(
 
 // Main Activity for the Dashboard
 class DashboardActivity : ComponentActivity() {
+    private lateinit var viewModel: DashboardViewModel
+    private val TAG = "DashboardActivity"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = getColor(R.color.black)
+
+        // Initialize the ViewModel
+        viewModel = ViewModelProvider(this)[DashboardViewModel::class.java]
+
+        // Set status bar color to match the theme
+        window.statusBarColor = getColor(R.color.black) // Use the app's purple color
+
+        // Check if we're coming from login and pass the USER_ID to the ViewModel
+        val comingFromLogin = intent.getBooleanExtra("FROM_LOGIN", false)
+        val userIdFromIntent = intent.getStringExtra("USER_ID")
+
+        if (comingFromLogin && userIdFromIntent != null) {
+            Log.d(TAG, "Activity launched from login with USER_ID: $userIdFromIntent. Forcing data fetch for this user.")
+            viewModel.fetchUserData(forcedUserId = userIdFromIntent)
+        } else {
+            Log.d(TAG, "Activity not launched from login or USER_ID not provided, ViewModel will use default fetch logic.")
+            // ViewModel's init block already calls fetchUserData() which will use currentUser by default
+        }
 
         // Enable edge-to-edge display for a modern look
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -84,7 +115,8 @@ class DashboardActivity : ComponentActivity() {
                     onThemeToggle = { dark ->
                         isDarkTheme = dark
                         prefs.edit().putBoolean("dark_mode", dark).apply()
-                    }
+                    },
+                    viewModel = viewModel
                 )
             }
         }
@@ -95,7 +127,8 @@ class DashboardActivity : ComponentActivity() {
 @Composable
 fun DashboardScreen(
     onThemeToggle: (Boolean) -> Unit, // Callback to toggle theme
-    isDarkTheme: Boolean // Current theme state
+    isDarkTheme: Boolean, // Current theme state
+    viewModel: DashboardViewModel // Dashboard ViewModel
 ) {
     // States to control animated visibility for Home content
     var showServiceGrid by remember { mutableStateOf(false) }
@@ -171,7 +204,11 @@ fun DashboardScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (selectedNavItem == 1) "Utilities" else "Dashboard"
+                        text = when (selectedNavItem) {
+                            1 -> "Utilities"
+                            3 -> "Profile"
+                            else -> "Dashboard"
+                        }
                     )
                 },
                 actions = {
@@ -187,15 +224,38 @@ fun DashboardScreen(
                             contentDescription = if (isDarkTheme) "Switch to Light Mode" else "Switch to Dark Mode"
                         )
                     }
-                    // Profile icon in the top app bar
-                    Image(
-                        painter = painterResource(id = R.drawable.baseline_person_24),
-                        contentDescription = "Profile",
+
+                    // Profile image in the top app bar
+                    val userImageUrl by viewModel.userProfileImageUrl.observeAsState()
+
+                    // Use AsyncImage to load the user's profile image from Cloudinary
+                    Box(
                         modifier = Modifier
                             .padding(end = 16.dp)
                             .size(36.dp)
                             .clip(CircleShape)
-                    )
+                            .clickable { selectedNavItem = 3 } // Navigate to profile tab when clicked
+                    ) {
+                        if (userImageUrl != null && userImageUrl!!.isNotEmpty()) {
+                            // If we have a valid image URL, load it with AsyncImage
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(userImageUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Profile",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            // If no image URL is available, show the default person icon
+                            Image(
+                                painter = painterResource(id = R.drawable.baseline_person_24),
+                                contentDescription = "Profile",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
                 }
             )
         },
@@ -262,9 +322,15 @@ fun DashboardScreen(
                         selected = false,
                         onClick = {
                             try {
-                                context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.ChatbotActivity")))
+                                val intent = Intent(context, Class.forName("com.example.daktarsaab.view.ChatbotActivity"))
+                                val user = viewModel.userData.value
+                                val profileUrl = viewModel.userProfileImageUrl.value
+                                intent.putExtra("USER_NAME", user?.firstName ?: "User") // Changed to pass only firstName
+                                intent.putExtra("PROFILE_IMAGE_URL", profileUrl)
+                                context.startActivity(intent)
                             } catch (e: Exception) {
                                 // Handle exception if class not found
+                                Log.e("DashboardScreen", "Error starting ChatbotActivity", e)
                             }
                         },
                         icon = {
@@ -317,7 +383,7 @@ fun DashboardScreen(
                     showRecentHistory = showRecentHistory
                 )
                 1 -> UtilitiesContent(showUtilitiesContent = showUtilitiesContent)
-                3 -> ProfileContent()
+                3 -> ProfileContent(viewModel = viewModel)
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -378,17 +444,51 @@ fun HomeContent(
         visible = showRecentHistoryLabel,
         enter = fadeIn(animationSpec = tween(durationMillis = 300))
     ) {
-        Text("Recent History", style = MaterialTheme.typography.titleMedium)
-    }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // State to track whether to show all appointments or just the first two
+            var showAllAppointments by remember { mutableStateOf(false) }
 
-    AnimatedVisibility(
-        visible = showRecentHistory,
-        enter = slideInVertically(
-            initialOffsetY = { it },
-            animationSpec = tween(durationMillis = 500)
-        ) + fadeIn(animationSpec = tween(durationMillis = 500))
-    ) {
-        RecentHistory()
+            // Row to contain both the title and the "View All" button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Recent History", style = MaterialTheme.typography.titleMedium)
+
+                // View All toggle button
+                Row(
+                    modifier = Modifier
+                        .clickable { showAllAppointments = !showAllAppointments }
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "View All",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Icon(
+                        painter = painterResource(id = R.drawable.baseline_swipe_down_24),
+                        contentDescription = "Toggle Appointments View",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = showRecentHistory,
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(durationMillis = 500)
+                ) + fadeIn(animationSpec = tween(durationMillis = 500))
+            ) {
+                RecentHistory(showAllAppointments)
+            }
+        }
     }
 }
 
@@ -422,6 +522,7 @@ fun ServiceGrid() {
 fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
     val context = LocalContext.current
     val playLottieForever = title == "X-ray Scan"
+    val viewModel: DashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel() // Get ViewModel instance
 
     val composition by rememberLottieComposition(LottieCompositionSpec.Asset(assetName))
     val progress by animateLottieCompositionAsState(
@@ -446,7 +547,15 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
                             context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.SymptomAnalayzes")))
                         }
                         "Maps" -> {
-                            context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.MapsActivity")))
+                            val intent = Intent(context, Class.forName("com.example.daktarsaab.view.MapsActivity"))
+                            val user = viewModel.userData.value
+                            val profileUrl = viewModel.userProfileImageUrl.value
+                            intent.putExtra("USER_NAME", user?.firstName ?: "User")
+                            intent.putExtra("PROFILE_IMAGE_URL", profileUrl)
+                            // Pass the current theme state
+                            val prefs = context.getSharedPreferences("daktar_prefs", Context.MODE_PRIVATE) // Changed to Context.MODE_PRIVATE
+                            intent.putExtra("IS_DARK_THEME", prefs.getBoolean("dark_mode", false))
+                            context.startActivity(intent)
                         }
                         "Doctor Booking" -> {
                             context.startActivity(Intent(context, Class.forName("com.example.daktarsaab.view.DoctorBookActivity")))
@@ -454,6 +563,7 @@ fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
                     }
                 } catch (e: Exception) {
                     // Handle class not found exception
+                    Log.e("ServiceCard", "Error starting activity for $title", e)
                 }
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -584,7 +694,7 @@ fun MedicalArticlesCard(articles: List<MedicalArticle>) {
 }
 
 @Composable
-fun RecentHistory() {
+fun RecentHistory(showAllAppointments: Boolean) {
     val appointments = listOf(
         "Appointment 1: Kathmandu - Dr. Sharma (Cardiologist)",
         "Appointment 2: Lalitpur - Dr. Basnet (Dermatologist)",
@@ -593,11 +703,19 @@ fun RecentHistory() {
         "Appointment 5: Pokhara - Dr. Gurung (Dentist)"
     )
 
-    LazyColumn(
+    // Calculate which appointments to show based on the state
+    val appointmentsToShow = if (showAllAppointments) {
+        appointments
+    } else {
+        appointments.take(2)
+    }
+
+    // Fixed height column instead of LazyColumn to prevent scrolling
+    Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.heightIn(max = 400.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
-        items(appointments) { appointment ->
+        appointmentsToShow.forEach { appointment ->
             Card(
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(4.dp),
@@ -622,6 +740,11 @@ fun RecentHistory() {
                     }
                 }
             }
+        }
+
+        // Show a message when there are more appointments to see but not showing all
+        if (!showAllAppointments && appointments.size > 2) {
+
         }
     }
 }
@@ -758,19 +881,150 @@ fun UtilityCard(item: UtilityItem) {
 }
 
 @Composable
-fun ProfileContent() {
+fun ProfileContent(viewModel: DashboardViewModel) { // Removed default viewModel instance
+    val userProfileImageUrl by viewModel.userProfileImageUrl.observeAsState()
+    val userData by viewModel.userData.observeAsState()
+
+    // Add a LaunchedEffect to log the image URL from the ProfileContent composable
+    LaunchedEffect(userProfileImageUrl, userData) { // Observe changes to these states
+        Log.d("ProfileContent", "Profile image URL in ProfileContent: $userProfileImageUrl")
+        Log.d("ProfileContent", "User data in ProfileContent: FirstName: ${userData?.firstName}, Email: ${userData?.email}")
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top // Align content to the top
     ) {
-        Text("Profile Section Coming Soon!", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Profile Image
+        userProfileImageUrl?.let { imageUrl ->
+            if (imageUrl.isNotEmpty()) {
+                Log.d("ProfileContent", "Displaying image from URL: $imageUrl")
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(imageUrl)
+                        .crossfade(true)
+                        .error(R.drawable.baseline_person_24) // Fallback for error
+                        .placeholder(R.drawable.baseline_person_24) // Placeholder while loading
+                        .build(),
+                    contentDescription = "User Profile Image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(120.dp) // Increased size
+                        .clip(CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                )
+            } else {
+                Log.d("ProfileContent", "Image URL is empty, showing default person icon")
+                DefaultProfileIcon(size = 120.dp)
+            }
+        } ?: run {
+            Log.d("ProfileContent", "No image URL, showing default person icon")
+            DefaultProfileIcon(size = 120.dp)
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
+
+        // User Name
+        userData?.let {
+            Text(
+                text = "${it.firstName} ${it.lastName}",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            // User Email
+            Text(
+                text = it.email,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } ?: run {
+            // Placeholder if user data is not yet available
+            Text(
+                text = "Loading user data...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        Divider()
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Reports Section (Placeholder)
+        ProfileSectionItem(title = "My Reports", icon = R.drawable.baseline_assessment_24) {
+            // TODO: Navigate to Reports Screen or show reports content
+            Log.d("ProfileContent", "My Reports clicked")
+        }
+        ProfileSectionItem(title = "Edit Profile", icon = R.drawable.baseline_edit_24) {
+            // TODO: Navigate to Edit Profile Screen
+            Log.d("ProfileContent", "Edit Profile clicked")
+        }
+
+        // Get context reference outside the ProfileSectionItem
+        val context = LocalContext.current
+
+        ProfileSectionItem(title = "Logout", icon = R.drawable.baseline_logout_24, isDestructive = true) {
+            // Direct logout to login screen without splash animation
+            try {
+                // Create intent for LoginActivity
+                val intent = Intent(context, Class.forName("com.example.daktarsaab.view.LoginActivity"))
+                // Clear back stack so user can't go back with back button
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                context.startActivity(intent)
+                // Finish current activity
+                (context as? ComponentActivity)?.finish()
+            } catch (e: Exception) {
+                Log.e("ProfileContent", "Error navigating to login screen", e)
+            }
+        }
+
+    }
+}
+
+@Composable
+fun DefaultProfileIcon(size: Dp) {
+    Icon(
+        painter = painterResource(id = R.drawable.baseline_person_24),
+        contentDescription = "Default Profile Image",
+        modifier = Modifier.size(size).clip(CircleShape),
+        tint = MaterialTheme.colorScheme.primaryContainer
+    )
+}
+
+@Composable
+fun ProfileSectionItem(title: String, icon: Int, isDestructive: Boolean = false, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Icon(
-            painter = painterResource(id = R.drawable.baseline_construction_24),
-            contentDescription = "Under Construction",
-            modifier = Modifier.size(96.dp),
-            tint = MaterialTheme.colorScheme.onBackground
+            painter = painterResource(id = icon),
+            contentDescription = title,
+            tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Icon(
+            painter = painterResource(id = R.drawable.baseline_arrow_forward_ios_24),
+            contentDescription = "Go to $title",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp)
         )
     }
 }

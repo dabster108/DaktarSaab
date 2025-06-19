@@ -79,6 +79,9 @@ dependencies {
     implementation("com.google.firebase:firebase-auth:23.2.1")
     androidTestImplementation(platform(libs.compose.bom))
 
+    // Cloudinary SDK for image upload
+    implementation("com.cloudinary:cloudinary-android:2.3.1")
+
     implementation(libs.core.ktx)
     implementation(libs.activity.compose)
     implementation(libs.compose.ui)

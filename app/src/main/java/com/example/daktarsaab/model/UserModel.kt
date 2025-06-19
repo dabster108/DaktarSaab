@@ -11,8 +11,9 @@ data class UserModel(
     var active: String = "",
     var email: String = "",
     var password: String = "",  // Added password field
+    var imageUrl: String = "",  // Added image URL field for Cloudinary
     val f: String = ""  // Required field as per your existing model
 ) {
     // Empty constructor needed for Firebase deserialization
-    constructor() : this("", "", "", "", "", "", "", "")
+    constructor() : this("", "", "", "", "", "", "", "", "")
 }

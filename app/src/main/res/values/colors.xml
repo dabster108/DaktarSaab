@@ -7,16 +7,13 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="hospital_color">#FF0000</color> <!-- Red -->
-    <color name="pharmacy_color">#00FF00</color> <!-- Green -->
-    <color name="clinic_color">#0000FF</color>   <!-- Blue -->
-    <color name="gas_station_color">#FFFF00</color> <!-- Yellow -->
 
-    <!-- XRay Analysis app colors -->
-    <color name="splash_background">#FF0A84FF</color>
-    <color name="welcome_background">#FFF5F5F5</color>
-    <color name="primary_text">#FF333333</color>
-    <color name="secondary_text">#FF666666</color>
-    <color name="card_background">#FFFFFFFF</color>
-    <color name="accent_color">#FF0A84FF</color>
+    <!-- App specific colors -->
+    <color name="primary">#FF6200EE</color>
+    <color name="primary_dark">#FF3700B3</color>
+    <color name="accent">#FF03DAC5</color>
+    <color name="background">#FFFFFFFF</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="error">#FFB00020</color>
 </resources>
+
