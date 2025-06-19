@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.util.Patterns
+import android.view.WindowInsetsController
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -54,9 +55,7 @@ import kotlinx.coroutines.delay
 class LoginActivity : ComponentActivity() {
     private lateinit var viewModel: LoginViewModel
     private val TAG = "LoginActivity"
-
-    // Key for tracking splash screen display in this app session
-    private val SPLASH_SHOWN_KEY = "splash_shown_this_session"
+    private val SPLASH_SHOWN_KEY = "splash_shown"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,10 +64,19 @@ class LoginActivity : ComponentActivity() {
         viewModel = ViewModelProvider(this)[LoginViewModel::class.java]
 
         // Set status bar color to match the theme
-        window.statusBarColor = getColor(R.color.black) // Use your app's purple color
+        window.statusBarColor = getColor(R.color.black)
 
         // Get the application-wide shared preferences
         val sharedPreferences = getSharedPreferences("app_prefs", MODE_PRIVATE)
+
+        // Check if app is launched fresh from the launcher
+        val isFromLauncher = intent.action == Intent.ACTION_MAIN &&
+                intent.categories?.contains(Intent.CATEGORY_LAUNCHER) == true
+
+        // Reset splash preference when app is launched from launcher
+        if (isFromLauncher) {
+            sharedPreferences.edit().remove(SPLASH_SHOWN_KEY).apply()
+        }
 
         // Check if splash has been shown this session
         val isSplashShown = sharedPreferences.getBoolean(SPLASH_SHOWN_KEY, false)
@@ -80,672 +88,509 @@ class LoginActivity : ComponentActivity() {
         viewModel.checkLoggedInUser()
 
         setContent {
-            // Move isSystemInDarkTheme() and theme state inside the composable scope
-            val isDarkTheme = isSystemInDarkTheme()
-            var darkMode by rememberSaveable { mutableStateOf(isDarkTheme) }
+            var darkMode by rememberSaveable { mutableStateOf(false) }
+            val isSystemDark = isSystemInDarkTheme()
+
+            // Use system preference on first launch
+            LaunchedEffect(Unit) {
+                darkMode = isSystemDark
+            }
 
             DaktarSaabTheme(darkTheme = darkMode) {
-                // Skip splash if it's already been shown this session or if coming from signup
-                var showSplash by remember { mutableStateOf(!isSplashShown && !isComingFromSignup) }
-
-                LaunchedEffect(showSplash) {
-                    if (showSplash) {
-                        // Changed duration to 5 seconds
-                        delay(5000)
-                        showSplash = false
-                        // Mark splash as shown for this session
-                        sharedPreferences.edit().putBoolean(SPLASH_SHOWN_KEY, true).apply()
-                    }
-                }
-
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = colorScheme.background
+                    color = MaterialTheme.colorScheme.background
                 ) {
-                    if (showSplash) {
-                        SplashScreen()
-                    } else {
-                        val context = LocalContext.current
-
-                        // Observe login state to handle navigation
-                        val loginState by viewModel.loginState.observeAsState()
-
-                        // Debug logging for login states
-                        LaunchedEffect(loginState) {
-                            when (loginState) {
-                                is LoginState.Loading -> {
-                                    Log.d(TAG, "Login state: Loading")
-                                }
-                                is LoginState.Success -> {
-                                    Log.d(TAG, "Login state: Success")
-                                    val user = (loginState as LoginState.Success).user
-                                    Log.d(TAG, "Logged in user: ${user.email}, ID: ${user.userId}")
-
-                                    Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
-                                    // Navigate to Dashboard
-                                    val intent = Intent(context, DashboardActivity::class.java)
-                                    intent.putExtra("FROM_LOGIN", true) // Add a flag to indicate coming from login
-                                    intent.putExtra("USER_ID", user.userId) // Pass the specific USER_ID
-                                    context.startActivity(intent)
-                                    finish() // Close LoginActivity
-                                }
-                                is LoginState.Error -> {
-                                    val errorMsg = (loginState as LoginState.Error).message
-                                    if (errorMsg.isNotEmpty()) {
-                                        Log.d(TAG, "Login state: Error - $errorMsg")
-                                    }
-                                }
-                                null -> {
-                                    Log.d(TAG, "Login state: Initial null state")
-                                }
-                            }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // Theme toggle button
+                        IconButton(
+                            onClick = { darkMode = !darkMode },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    id = if (darkMode) R.drawable.baseline_dark_mode_24
+                                    else R.drawable.baseline_light_mode_24
+                                ),
+                                contentDescription = if (darkMode) "Dark mode" else "Light mode",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(28.dp)
+                            )
                         }
 
-                        LoginScreen(
-                            onForgotPasswordClick = {
-                                val intent = Intent(context, ForgotPasswordActivity::class.java)
-                                context.startActivity(intent)
-                            },
-                            onSignupClick = {
-                                val intent = Intent(context, SignupActivity::class.java)
-                                context.startActivity(intent)
-                            },
-                            onGoogleSignInClick = {
-                                // Google Sign-In removed
-                                Toast.makeText(context, "Google Sign-In is not available", Toast.LENGTH_SHORT).show()
-                            },
-                            darkMode = darkMode,
-                            onToggleDarkMode = { darkMode = !darkMode },
-                            viewModel = viewModel
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Rest of the code remains the same (SplashScreen, LoginScreen, etc.)
-@Composable
-fun SplashScreen() {
-    // Lottie animation setup
-    val lottieComposition by rememberLottieComposition(LottieCompositionSpec.Asset("loading.json"))
-    val lottieProgress by animateLottieCompositionAsState(
-        composition = lottieComposition,
-        iterations = LottieConstants.IterateForever // Loop the Lottie animation
-    )
-
-    // Text animation states
-    val welcomeText = "Welcome to"
-    val appNameLine1 = "Daktar"
-    val appNameLine2 = "Saab"
-
-    var welcomeVisible by remember { mutableStateOf(false) }
-    var appName1Visible by remember { mutableStateOf(false) }
-    var appName2Visible by remember { mutableStateOf(false) }
-
-    // Animation parameters for text
-    val textAnimationDuration = 700 // milliseconds
-    val textDropOffset = (-30).dp // How far the text drops from
-
-    // LaunchedEffect to trigger text animations sequentially
-    LaunchedEffect(Unit) {
-        delay(400) // Initial delay for text animations to start after Lottie is visible
-        welcomeVisible = true
-        delay(300) // Stagger for "Daktar"
-        appName1Visible = true
-        delay(250) // Stagger for "Saab"
-        appName2Visible = true
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White), // Explicitly White background
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center // Center the content vertically in the column
-        ) {
-            // 1. Lottie Animation - Size Increased
-            LottieAnimation(
-                composition = lottieComposition,
-                progress = { lottieProgress },
-                modifier = Modifier.size(280.dp) // Increased size for Lottie animation
-            )
-
-            // 2. "Much Space" between Lottie and Text
-            Spacer(modifier = Modifier.height(40.dp)) // Adjustable space
-
-            // 3. Animated Text Elements
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // Animated "Welcome to"
-                AnimatedVisibility(
-                    visible = welcomeVisible,
-                    enter = slideInVertically(
-                        initialOffsetY = { textDropOffset.roundToPx() },
-                        animationSpec = tween(durationMillis = textAnimationDuration, easing = EaseOutCubic)
-                    ) + fadeIn(animationSpec = tween(durationMillis = textAnimationDuration))
-                ) {
-                    Text(
-                        text = welcomeText,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = colorScheme.onSurface.copy(alpha = 0.8f),
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Animated "Daktar"
-                AnimatedVisibility(
-                    visible = appName1Visible,
-                    enter = slideInVertically(
-                        initialOffsetY = { textDropOffset.roundToPx() },
-                        animationSpec = tween(durationMillis = textAnimationDuration, easing = EaseOutCubic)
-                    ) + fadeIn(animationSpec = tween(durationMillis = textAnimationDuration))
-                ) {
-                    Text(
-                        text = appNameLine1,
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colorScheme.primary,
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Animated "Saab"
-                AnimatedVisibility(
-                    visible = appName2Visible,
-                    enter = slideInVertically(
-                        initialOffsetY = { textDropOffset.roundToPx() },
-                        animationSpec = tween(durationMillis = textAnimationDuration, easing = EaseOutCubic)
-                    ) + fadeIn(animationSpec = tween(durationMillis = textAnimationDuration))
-                ) {
-                    Text(
-                        text = appNameLine2,
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colorScheme.primary,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        }
-    }
-}
-
-private fun Dp.roundToPx(): Int {return this.value.toInt()}
-
-
-@OptIn(ExperimentalAnimationApi::class)
-@Composable
-fun LoginScreen(
-    onForgotPasswordClick: () -> Unit,
-    onSignupClick: () -> Unit,
-    onGoogleSignInClick: () -> Unit,
-    darkMode: Boolean = isSystemInDarkTheme(),
-    onToggleDarkMode: () -> Unit = {},
-    viewModel: LoginViewModel? = null
-) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var rememberMe by remember { mutableStateOf(true) }
-    var isCheckingEmail by remember { mutableStateOf(false) }
-    var isPasswordLocked by remember { mutableStateOf(false) }
-    var lastPasswordEdit by remember { mutableStateOf(0L) }
-
-    // State to track login status
-    var isLoggingIn by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    // Remove the showErrorDialog state since we're showing inline errors now
-
-    // Observe login state
-    if (viewModel != null) {
-        val loginState by viewModel.loginState.observeAsState()
-
-        LaunchedEffect(loginState) {
-            when (loginState) {
-                is LoginState.Loading -> {
-                    isLoggingIn = true
-                    errorMessage = null
-                }
-                is LoginState.Success -> {
-                    isLoggingIn = false
-                    errorMessage = null
-                    // Navigation is handled in the Activity
-                }
-                is LoginState.Error -> {
-                    isLoggingIn = false
-                    errorMessage = (loginState as LoginState.Error).message
-                }
-                else -> {
-                    // Initial state
-                    isLoggingIn = false
-                    errorMessage = null
-                }
-            }
-        }
-    }
-
-    // Remove the error dialog since we're showing inline errors now
-
-    val animatedFullText = "Welcome back! Please enter your details."
-    val defaultText = "Welcome to Daktar Sab App"
-    var displayedText by remember { mutableStateOf("") }
-    var isAnimating by remember { mutableStateOf(true) }
-
-    val topVisible = remember { mutableStateOf(false) }
-    val bottomVisible = remember { mutableStateOf(false) }
-
-    val doctorAnimation by rememberLottieComposition(LottieCompositionSpec.Asset("doctorlogin.json"))
-    val animationProgress by animateLottieCompositionAsState(
-        doctorAnimation,
-        iterations = LottieConstants.IterateForever
-    )
-
-    val isEmailValid = remember(email) {
-        Patterns.EMAIL_ADDRESS.matcher(email).matches()
-    }
-
-    LaunchedEffect(email) {
-        if (email.isNotBlank()) {
-            isCheckingEmail = true
-            delay(800)
-            isCheckingEmail = false
-        }
-    }
-
-    LaunchedEffect(password) {
-        if (password.isNotBlank()) {
-            isPasswordLocked = false
-            lastPasswordEdit = System.currentTimeMillis()
-            delay(1000)
-            if (System.currentTimeMillis() - lastPasswordEdit >= 900) {
-                isPasswordLocked = true
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        delay(300)
-        topVisible.value = true
-        delay(300)
-        bottomVisible.value = true
-
-        for (i in animatedFullText.indices) {
-            displayedText = animatedFullText.substring(0, i + 1)
-            delay(50)
-        }
-        delay(1000)
-
-        for (i in animatedFullText.length downTo 0) {
-            displayedText = animatedFullText.substring(0, i)
-            delay(30)
-        }
-
-        displayedText = defaultText
-        isAnimating = false
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Dark/Light mode toggle in the top right with padding
-        IconButton(
-            onClick = onToggleDarkMode,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-        ) {
-            Icon(
-                painter = painterResource(
-                    id = if (darkMode) R.drawable.baseline_light_mode_24
-                    else R.drawable.baseline_dark_mode_24
-                ),
-                contentDescription = if (darkMode) "Switch to Light Mode" else "Switch to Dark Mode",
-                tint = Color.Unspecified,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Center
-        ) {
-            AnimatedVisibility(
-                visible = topVisible.value,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { -200 }),
-                exit = fadeOut()
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    LottieAnimation(
-                        composition = doctorAnimation,
-                        progress = { animationProgress },
-                        modifier = Modifier
-                            .size(250.dp)
-                            .padding(bottom = 16.dp)
-                    )
-
-                    Text(
-                        text = "Log in ✨",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = displayedText,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = bottomVisible.value,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { 200 }),
-                exit = fadeOut()
-            ) {
-                Column {
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = {
-                            email = it
-                            // Clear error message when user types
-                            if (errorMessage?.contains("not registered", ignoreCase = true) == true) {
-                                errorMessage = null
-                            }
-                        },
-                        label = { Text("Email") },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        isError = errorMessage?.contains("not registered", ignoreCase = true) == true,
-                        leadingIcon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_email_24),
-                                contentDescription = null
+                        // Main content in a Column without scroll
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            // Lottie animation with reduced size
+                            val doctorAnimation by rememberLottieComposition(
+                                LottieCompositionSpec.Asset("doctorlogin.json")
                             )
-                        },
-                        trailingIcon = {
-                            if (email.isNotBlank()) {
-                                AnimatedContent(
-                                    targetState = isCheckingEmail to isEmailValid,
-                                    transitionSpec = {
-                                        if (targetState.first) {
-                                            fadeIn() with fadeOut()
-                                        } else {
-                                            if (targetState.second) {
-                                                scaleIn() + fadeIn() with scaleOut() + fadeOut()
-                                            } else {
-                                                fadeIn() with fadeOut()
+                            val animationProgress by animateLottieCompositionAsState(
+                                composition = doctorAnimation,
+                                iterations = LottieConstants.IterateForever
+                            )
+
+                            LottieAnimation(
+                                composition = doctorAnimation,
+                                progress = { animationProgress },
+                                modifier = Modifier
+                                    .size(180.dp)
+                                    .padding(bottom = 16.dp)
+                            )
+
+                            // Debug logging for login states
+                            val context = LocalContext.current
+                            val loginState by viewModel.loginState.observeAsState()
+
+                            LaunchedEffect(loginState) {
+                                when (loginState) {
+                                    is LoginState.Loading -> {
+                                        Log.d(TAG, "Login state: Loading")
+                                    }
+                                    is LoginState.Success -> {
+                                        Log.d(TAG, "Login state: Success")
+                                        val user = (loginState as LoginState.Success).user
+                                        Log.d(TAG, "Logged in user: ${user.email}, ID: ${user.userId}")
+
+                                        Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
+                                        // Pass the theme preference to the dashboard
+                                        val intent = Intent(context, DashboardActivity::class.java).apply {
+                                            putExtra("FROM_LOGIN", true)
+                                            putExtra("USER_ID", user.userId)
+                                        }
+                                        context.startActivity(intent)
+                                        finish()
+                                    }
+                                    is LoginState.Error -> {
+                                        val errorMsg = (loginState as LoginState.Error).message
+                                        if (errorMsg.isNotEmpty()) {
+                                            Log.d(TAG, "Login state: Error - $errorMsg")
+                                        }
+                                    }
+                                    null -> {
+                                        Log.d(TAG, "Login state: Initial null state")
+                                    }
+                                }
+                            }
+
+                            var email by remember { mutableStateOf("") }
+                            var password by remember { mutableStateOf("") }
+                            var passwordVisible by remember { mutableStateOf(false) }
+                            var rememberMe by remember { mutableStateOf(true) }
+                            var isCheckingEmail by remember { mutableStateOf(false) }
+                            var isPasswordLocked by remember { mutableStateOf(false) }
+                            var lastPasswordEdit by remember { mutableStateOf(0L) }
+
+                            // Define isEmailValid here to fix the unresolved reference
+                            val isEmailValid = remember(email) {
+                                Patterns.EMAIL_ADDRESS.matcher(email).matches()
+                            }
+
+                            // State to track login status
+                            var isLoggingIn by remember { mutableStateOf(false) }
+                            var errorMessage by remember { mutableStateOf<String?>(null) }
+
+                            // Observe login state
+                            if (viewModel != null) {
+                                val loginState by viewModel.loginState.observeAsState()
+
+                                LaunchedEffect(loginState) {
+                                    when (loginState) {
+                                        is LoginState.Loading -> {
+                                            isLoggingIn = true
+                                            errorMessage = null
+                                        }
+                                        is LoginState.Success -> {
+                                            isLoggingIn = false
+                                            errorMessage = null
+                                            // Navigation is handled in the Activity
+                                        }
+                                        is LoginState.Error -> {
+                                            isLoggingIn = false
+                                            errorMessage = (loginState as LoginState.Error).message
+                                        }
+                                        else -> {
+                                            // Initial state
+                                            isLoggingIn = false
+                                            errorMessage = null
+                                        }
+                                    }
+                                }
+                            }
+
+                            val animatedFullText = "Welcome back! Please enter your details."
+                            val defaultText = "Welcome to Daktar Sab App"
+                            var displayedText by remember { mutableStateOf("") }
+                            var isAnimating by remember { mutableStateOf(true) }
+
+                            val topVisible = remember { mutableStateOf(false) }
+                            val bottomVisible = remember { mutableStateOf(false) }
+
+                            LaunchedEffect(email) {
+                                if (email.isNotBlank()) {
+                                    isCheckingEmail = true
+                                    delay(800)
+                                    isCheckingEmail = false
+                                }
+                            }
+
+                            LaunchedEffect(password) {
+                                if (password.isNotBlank()) {
+                                    isPasswordLocked = false
+                                    lastPasswordEdit = System.currentTimeMillis()
+                                    delay(1000)
+                                    if (System.currentTimeMillis() - lastPasswordEdit >= 900) {
+                                        isPasswordLocked = true
+                                    }
+                                }
+                            }
+
+                            LaunchedEffect(Unit) {
+                                delay(300)
+                                topVisible.value = true
+                                delay(300)
+                                bottomVisible.value = true
+
+                                for (i in animatedFullText.indices) {
+                                    displayedText = animatedFullText.substring(0, i + 1)
+                                    delay(50)
+                                }
+                                delay(1000)
+
+                                for (i in animatedFullText.length downTo 0) {
+                                    displayedText = animatedFullText.substring(0, i)
+                                    delay(30)
+                                }
+
+                                displayedText = defaultText
+                                isAnimating = false
+                            }
+
+                            AnimatedVisibility(
+                                visible = topVisible.value,
+                                enter = fadeIn() + slideInVertically(initialOffsetY = { -200 }),
+                                exit = fadeOut()
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "Log in ✨",
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = displayedText,
+                                        color = Color.Gray,
+                                        modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
+                                    )
+                                }
+                            }
+
+                            AnimatedVisibility(
+                                visible = bottomVisible.value,
+                                enter = fadeIn() + slideInVertically(initialOffsetY = { 200 }),
+                                exit = fadeOut()
+                            ) {
+                                Column {
+                                    OutlinedTextField(
+                                        value = email,
+                                        onValueChange = {
+                                            email = it
+                                            // Clear error message when user types
+                                            if (errorMessage?.contains("not registered", ignoreCase = true) == true) {
+                                                errorMessage = null
+                                            }
+                                        },
+                                        label = { Text("Email") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                                        isError = errorMessage?.contains("not registered", ignoreCase = true) == true,
+                                        leadingIcon = {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.baseline_email_24),
+                                                contentDescription = null
+                                            )
+                                        },
+                                        trailingIcon = {
+                                            if (email.isNotBlank()) {
+                                                @OptIn(ExperimentalAnimationApi::class)
+                                                AnimatedContent(
+                                                    targetState = Pair(isCheckingEmail, isEmailValid),
+                                                    transitionSpec = {
+                                                        if (targetState.first) {
+                                                            fadeIn() with fadeOut()
+                                                        } else {
+                                                            if (targetState.second) {
+                                                                scaleIn() + fadeIn() with scaleOut() + fadeOut()
+                                                            } else {
+                                                                fadeIn() with fadeOut()
+                                                            }
+                                                        }
+                                                    }
+                                                ) { state ->
+                                                    val (checking, valid) = state
+                                                    when {
+                                                        checking -> LoadingCircle()
+                                                        valid -> BlueCheckmark()
+                                                        else -> {}
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = colorScheme.primary,
+                                            unfocusedBorderColor = colorScheme.outline,
+                                            focusedLabelColor = colorScheme.primary,
+                                            errorBorderColor = colorScheme.error,
+                                            errorLabelColor = colorScheme.error
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    OutlinedTextField(
+                                        value = password,
+                                        onValueChange = {
+                                            password = it
+                                            // Clear error message when user types
+                                            if (errorMessage?.contains("Password incorrect", ignoreCase = true) == true) {
+                                                errorMessage = null
+                                            }
+                                        },
+                                        label = { Text("Password") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                        isError = errorMessage?.contains("Password incorrect", ignoreCase = true) == true,
+                                        trailingIcon = {
+                                            Icon(
+                                                painter = painterResource(
+                                                    id = if (passwordVisible)
+                                                        R.drawable.baseline_visibility_off_24
+                                                    else
+                                                        R.drawable.baseline_visibility_24
+                                                ),
+                                                contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                                modifier = Modifier
+                                                    .clickable { passwordVisible = !passwordVisible }
+                                                    .padding(8.dp)
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            val lockScale = animateFloatAsState(
+                                                targetValue = if (isPasswordLocked && password.isNotBlank()) 1.2f else 1f,
+                                                animationSpec = tween(durationMillis = 300),
+                                                label = "lockScale"
+                                            )
+
+                                            Icon(
+                                                painter = painterResource(
+                                                    id = if (isPasswordLocked && password.isNotBlank())
+                                                        R.drawable.baseline_lock_24
+                                                    else
+                                                        R.drawable.baseline_lock_open_24
+                                                ),
+                                                contentDescription = null,
+                                                tint = if (isPasswordLocked && password.isNotBlank())
+                                                    colorScheme.primary
+                                                else
+                                                    colorScheme.onSurface,
+                                                modifier = Modifier.scale(lockScale.value)
+                                            )
+                                        },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = colorScheme.primary,
+                                            unfocusedBorderColor = colorScheme.outline,
+                                            focusedLabelColor = colorScheme.primary,
+                                            errorBorderColor = colorScheme.error,
+                                            errorLabelColor = colorScheme.error
+                                        )
+                                    )
+
+                                    // Error messages section - only show here after password field
+                                    if (errorMessage != null) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        when {
+                                            errorMessage?.contains("Password incorrect", ignoreCase = true) == true -> {
+                                                Text(
+                                                    text = "Incorrect password!!",
+                                                    color = colorScheme.error,
+                                                    fontSize = 12.sp,
+                                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                                )
+                                            }
+                                            errorMessage?.contains("not registered", ignoreCase = true) == true -> {
+                                                Text(
+                                                    text = "User not registered. Click signup",
+                                                    color = colorScheme.error,
+                                                    fontSize = 12.sp,
+                                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                                )
                                             }
                                         }
                                     }
-                                ) { (checking, valid) ->
-                                    when {
-                                        checking -> LoadingCircle()
-                                        valid -> BlueCheckmark()
-                                        else -> {}
+
+                                    // Row for "Remember me" and "Forgot password" - moved up closer to password field
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 2.dp),  // Reduced padding to move up
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Checkbox(
+                                                checked = rememberMe,
+                                                onCheckedChange = { rememberMe = it },
+                                                colors = CheckboxDefaults.colors(
+                                                    checkedColor = colorScheme.primary
+                                                )
+                                            )
+                                            Text(
+                                                "Remember me",
+                                                fontSize = 12.sp,  // Smaller text size
+                                                color = colorScheme.onSurface.copy(alpha = 0.7f)
+                                            )
+                                        }
+
+                                        Text(
+                                            text = "Forgot password?",
+                                            color = colorScheme.primary,
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 14.sp,
+                                            modifier = Modifier
+                                                .clickable {
+                                                    val intent = Intent(this@LoginActivity, ForgotPasswordActivity::class.java)
+                                                    startActivity(intent)
+                                                }
+                                                .padding(8.dp)  // Add padding for better touch target
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Button(
+                                        onClick = {
+                                            if (viewModel != null) {
+                                                viewModel.loginUser(email, password)
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp),
+                                        enabled = !isLoggingIn && email.isNotBlank() && password.isNotBlank() && !isCheckingEmail && isEmailValid,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = colorScheme.primary,
+                                            contentColor = colorScheme.onPrimary,
+                                            disabledContainerColor = colorScheme.primary.copy(alpha = 0.5f)
+                                        )
+                                    ) {
+                                        if (isLoggingIn) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(24.dp),
+                                                color = colorScheme.onPrimary,
+                                                strokeWidth = 2.dp
+                                            )
+                                        } else {
+                                            Text("Log In", fontSize = 16.sp)
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(24.dp))
+
+                                    // Or login with section
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Divider(
+                                            modifier = Modifier.weight(1f),
+                                            color = colorScheme.outline.copy(alpha = 0.5f)
+                                        )
+                                        Text(
+                                            text = " Or log in with ",
+                                            style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
+                                        )
+                                        Divider(
+                                            modifier = Modifier.weight(1f),
+                                            color = colorScheme.outline.copy(alpha = 0.5f)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(24.dp))
+
+                                    // Google sign in button
+                                    OutlinedButton(
+                                        onClick = {
+                                            // Define onGoogleSignInClick handler
+                                            // TODO: Implement Google Sign-In
+                                            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                                .requestEmail()
+                                                .build()
+                                            val googleSignInClient = GoogleSignIn.getClient(this@LoginActivity, gso)
+                                            // Launch sign-in intent
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp),
+                                        border = ButtonDefaults.outlinedButtonBorder,
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = colorScheme.onSurface
+                                        )
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Image(
+                                                painter = painterResource(id = R.drawable.img1),
+                                                contentDescription = "Google Logo",
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Sign in with Google")
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))  // Reduced spacing before sign up text
+
+                                    // Keep only this "Don't have an account" section
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 16.dp),  // Added padding to ensure visibility
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "Don't have an account? ",
+                                            color = colorScheme.onSurface.copy(alpha = 0.7f),
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Text(
+                                            "Sign up",
+                                            color = colorScheme.primary,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.clickable {
+                                                val intent = Intent(this@LoginActivity, SignupActivity::class.java)
+                                                startActivity(intent)
+                                            }
+                                        )
                                     }
                                 }
                             }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = colorScheme.primary,
-                            unfocusedBorderColor = colorScheme.outline,
-                            focusedLabelColor = colorScheme.primary,
-                            errorBorderColor = colorScheme.error,
-                            errorLabelColor = colorScheme.error
-                        ),
-                        supportingText = {
-                            if (errorMessage?.contains("not registered", ignoreCase = true) == true) {
-                                Text(
-                                    text = errorMessage ?: "",
-                                    color = colorScheme.error
-                                )
-                            }
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = {
-                            password = it
-                            // Clear error message when user types
-                            if (errorMessage?.contains("Password incorrect", ignoreCase = true) == true) {
-                                errorMessage = null
-                            }
-                        },
-                        label = { Text("Password") },
-                        modifier = Modifier.fillMaxWidth(),
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        isError = errorMessage?.contains("Password incorrect", ignoreCase = true) == true,
-                        trailingIcon = {
-                            Icon(
-                                painter = painterResource(
-                                    id = if (passwordVisible)
-                                        R.drawable.baseline_visibility_off_24
-                                    else
-                                        R.drawable.baseline_visibility_24
-                                ),
-                                contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                                modifier = Modifier
-                                    .clickable { passwordVisible = !passwordVisible }
-                                    .padding(8.dp)
-                            )
-                        },
-                        leadingIcon = {
-                            val lockScale = animateFloatAsState(
-                                targetValue = if (isPasswordLocked && password.isNotBlank()) 1.2f else 1f,
-                                animationSpec = tween(durationMillis = 300),
-                                label = "lockScale"
-                            )
-
-                            Icon(
-                                painter = painterResource(
-                                    id = if (isPasswordLocked && password.isNotBlank())
-                                        R.drawable.baseline_lock_24
-                                    else
-                                        R.drawable.baseline_lock_open_24
-                                ),
-                                contentDescription = null,
-                                tint = if (isPasswordLocked && password.isNotBlank())
-                                    colorScheme.primary
-                                else
-                                    colorScheme.onSurface,
-                                modifier = Modifier.scale(lockScale.value)
-                            )
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = colorScheme.primary,
-                            unfocusedBorderColor = colorScheme.outline,
-                            focusedLabelColor = colorScheme.primary,
-                            errorBorderColor = colorScheme.error,
-                            errorLabelColor = colorScheme.error
-                        ),
-                        supportingText = {
-                            if (errorMessage?.contains("Password incorrect", ignoreCase = true) == true) {
-                                Text(
-                                    text = errorMessage ?: "",
-                                    color = colorScheme.error
-                                )
-                            }
-                        }
-                    )
-
-                    // If there's an error message that's not about password or unregistered user,
-                    // show it as a general error message
-                    if (errorMessage != null &&
-                        !errorMessage!!.contains("Password incorrect", ignoreCase = true) &&
-                        !errorMessage!!.contains("not registered", ignoreCase = true)) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = errorMessage!!,
-                            color = colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Updated row for "Remember me" and "Forgot password"
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Checkbox(
-                                checked = rememberMe,
-                                onCheckedChange = { rememberMe = it },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = colorScheme.primary
-                                )
-                            )
-                            Text(
-                                "Remember me",
-                                fontSize = 12.sp,  // Smaller text size
-                                color = colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-                        }
-
-                        Text(
-                            text = "Forgot password?",
-                            color = colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            modifier = Modifier
-                                .clickable { onForgotPasswordClick() }
-                                .padding(8.dp)  // Add padding for better touch target
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Sign up button that appears when user is not registered
-                    AnimatedVisibility(
-                        visible = errorMessage?.contains("not registered", ignoreCase = true) == true,
-                        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 })
-                    ) {
-                        Button(
-                            onClick = onSignupClick,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = colorScheme.primary,
-                                contentColor = colorScheme.onPrimary
-                            )
-                        ) {
-                            Text("Sign Up Now", fontSize = 16.sp)
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    Button(
-                        onClick = {
-                            if (viewModel != null) {
-                                viewModel.loginUser(email, password)
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        enabled = !isLoggingIn && email.isNotBlank() && password.isNotBlank() && !isCheckingEmail && isEmailValid,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorScheme.primary,
-                            contentColor = colorScheme.onPrimary,
-                            disabledContainerColor = colorScheme.primary.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        if (isLoggingIn) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = colorScheme.onPrimary,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text("Log In", fontSize = 16.sp)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Divider(
-                            modifier = Modifier.weight(1f),
-                            color = colorScheme.outline.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            text = " Or log in with ",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
-                        )
-                        Divider(
-                            modifier = Modifier.weight(1f),
-                            color = colorScheme.outline.copy(alpha = 0.5f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    OutlinedButton(
-                        onClick = onGoogleSignInClick,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        border = ButtonDefaults.outlinedButtonBorder,
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = colorScheme.onSurface
-                        )
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.img1),
-                                contentDescription = "Google Logo",
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Sign in with Google")
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Row(
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Don't have an account?")
-                        TextButton(onClick = onSignupClick) {
-                            Text(
-                                text = "Sign up",
-                                fontWeight = FontWeight.Bold
-                            )
                         }
                     }
                 }
@@ -802,6 +647,7 @@ private fun BlueCheckmark() {
     }
 }
 
+<<<<<<< HEAD
 @Preview(showBackground = true, name = "Splash Screen Preview")
 @Composable
 fun SplashScreenPreview() {
@@ -822,5 +668,32 @@ fun LoginScreenPreview() {
             onToggleDarkMode = TODO(),
             viewModel = TODO()
         )
+=======
+@Preview(showBackground = true, name = "Login Screen Preview")
+@Composable
+fun LoginScreenPreview() {
+    DaktarSaabTheme {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // Preview content
+                    Text(
+                        text = "Log in ✨",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+>>>>>>> 7e5f5a0be718b2c9d1855cf47df181cd2ce6ce75
     }
 }

@@ -6,13 +6,26 @@
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
 <<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 7e5f5a0be718b2c9d1855cf47df181cd2ce6ce75
+<<<<<<< HEAD
       <SelectionState runConfigName="ChatbotActivity">
         <option name="selectionMode" value="DROPDOWN" />
+<<<<<<< HEAD
         <DropdownSelection timestamp="2025-06-17T16:52:25.014179Z">
 =======
       <SelectionState runConfigName="LoginActivity">
         <option name="selectionMode" value="DROPDOWN" />
         <DropdownSelection timestamp="2025-06-17T16:53:12.184134Z">
+=======
+        <DropdownSelection timestamp="2025-06-04T14:16:26.854647Z">
+=======
+      <SelectionState runConfigName="LoginActivity (1)">
+        <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2025-06-19T15:22:40.929737Z">
+>>>>>>> 7e5f5a0be718b2c9d1855cf47df181cd2ce6ce75
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="PhysicalDevice" identifier="serial=6152ee92" />
@@ -20,6 +33,7 @@
           </Target>
         </DropdownSelection>
         <DialogSelection />
+<<<<<<< HEAD
       </SelectionState>
       <SelectionState runConfigName="DashboardActivity">
         <option name="selectionMode" value="DROPDOWN" />
@@ -32,18 +46,64 @@
           </Target>
         </DropdownSelection>
         <DialogSelection />
+=======
+      </SelectionState>
+      <SelectionState runConfigName="MapsActivity (1)">
+        <option name="selectionMode" value="DROPDOWN" />
+      </SelectionState>
+      <SelectionState runConfigName="SplashActivity">
+        <option name="selectionMode" value="DROPDOWN" />
+      </SelectionState>
+      <SelectionState runConfigName="SplashActivity (1)">
+        <option name="selectionMode" value="DROPDOWN" />
+      </SelectionState>
+      <SelectionState runConfigName="SplashActivity (2)">
+        <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2025-06-19T15:37:20.933323Z">
+>>>>>>> ed32385d40b0a284dad2b75ba049c9aa4dc3eab7
+          <Target type="DEFAULT_BOOT">
+            <handle>
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=6152ee92" />
+            </handle>
+          </Target>
+        </DropdownSelection>
+        <DialogSelection />
+<<<<<<< HEAD
+=======
+>>>>>>> 20a123741e00a284c15467acfc8c1f83aec4ec4c
+=======
+>>>>>>> ed32385d40b0a284dad2b75ba049c9aa4dc3eab7
+      </SelectionState>
+=======
+>>>>>>> 98936c6ed75b0db1698df970229d9db7161889b1
+      <SelectionState runConfigName="DashboardActivity">
+        <option name="selectionMode" value="DROPDOWN" />
+>>>>>>> 7e5f5a0be718b2c9d1855cf47df181cd2ce6ce75
       </SelectionState>
 <<<<<<< HEAD
       <SelectionState runConfigName="LoginActivity">
 =======
+<<<<<<< HEAD
       <SelectionState runConfigName="LoginActivity (1)">
+=======
+>>>>>>> 98936c6ed75b0db1698df970229d9db7161889b1
+=======
+      <SelectionState runConfigName="SymptomAnalayzes">
+>>>>>>> 7e5f5a0be718b2c9d1855cf47df181cd2ce6ce75
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="MapsActivity">
+      <SelectionState runConfigName="DoctorBookActivity">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
+<<<<<<< HEAD
       <SelectionState runConfigName="MapsActivity (1)">
 >>>>>>> d72206d09717a8581f6e5129dc331eae0a61bccc
+=======
+      <SelectionState runConfigName="DashboardActivity (1)">
+=======
+      <SelectionState runConfigName="LoginActivity">
+>>>>>>> ba5cdf5c56fa98ac9a1f45106d14294b2a2aa12c
+>>>>>>> 7e5f5a0be718b2c9d1855cf47df181cd2ce6ce75
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>
