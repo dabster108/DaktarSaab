@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -752,6 +753,9 @@ fun RecentHistory(showAllAppointments: Boolean) {
 @Composable
 fun UtilitiesContent(showUtilitiesContent: Boolean) {
     val context = LocalContext.current
+    val viewModel: DashboardViewModel = viewModel()
+    val userData by viewModel.userData.observeAsState()
+    val userProfileImageUrl by viewModel.userProfileImageUrl.observeAsState()
 
     val utilities = remember {
         listOf(
@@ -760,11 +764,10 @@ fun UtilitiesContent(showUtilitiesContent: Boolean) {
                 description = "Never miss a dose or appointment again. Your health, on schedule!",
                 iconResId = R.drawable.baseline_alarm_24,
                 onClick = { ctx ->
-                    try {
-                        ctx.startActivity(Intent(ctx, Class.forName("com.example.daktarsaab.view.ReminderActivity")))
-                    } catch (e: Exception) {
-                        // Handle exception
-                    }
+                    val intent = Intent(ctx, Class.forName("com.example.daktarsaab.view.ReminderActivity"))
+                    intent.putExtra("USER_NAME", "${userData?.firstName} ${userData?.lastName}")
+                    intent.putExtra("PROFILE_IMAGE_URL", userProfileImageUrl)
+                    ctx.startActivity(intent)
                 }
             ),
             UtilityItem(

@@ -133,4 +133,7 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.compose.ui.test.junit4)
+
+    // Coil for image loading
+    implementation("io.coil-kt:coil-compose:2.5.0")
 }
