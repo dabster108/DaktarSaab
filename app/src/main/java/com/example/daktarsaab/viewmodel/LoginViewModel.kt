@@ -8,11 +8,21 @@ import androidx.lifecycle.viewModelScope
 import com.example.daktarsaab.model.UserModel
 import com.example.daktarsaab.repository.UserRepository
 import com.example.daktarsaab.repository.UserRepositoryImp
+import com.example.daktarsaab.utils.NotificationHelper
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 class LoginViewModel : ViewModel() {
     private val TAG = "LoginViewModel"
+
+    // Application context for notifications
+    private var applicationContext: android.content.Context? = null
+
+    fun setContext(context: android.content.Context) {
+        applicationContext = context.applicationContext
+        // Create notification channel when context is set
+        NotificationHelper.createNotificationChannel(applicationContext!!)
+    }
 
     // Firebase authentication instance
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -33,7 +43,6 @@ class LoginViewModel : ViewModel() {
 
         _loginState.value = LoginState.Loading
 
-        // SIMPLIFIED APPROACH: ONLY check database, skip Firebase Auth completely
         viewModelScope.launch {
             try {
                 // Check if this user exists in our database by email
@@ -45,6 +54,15 @@ class LoginViewModel : ViewModel() {
                         // Database password matches! Login successful
                         _loginState.value = LoginState.Success(user)
                         Log.d(TAG, "Login successful using database credentials")
+
+                        // Show success notification only for successful login
+                        applicationContext?.let { context ->
+                            NotificationHelper.showNotification(
+                                context,
+                                "Login Successful",
+                                "Welcome back to DaktarSaab!"
+                            )
+                        }
 
                         // Try to silently sign in to Firebase Auth in the background for
                         // features that might need Firebase Auth, but we don't care if it fails
@@ -60,17 +78,17 @@ class LoginViewModel : ViewModel() {
                             // Ignore completely - we don't care about Firebase Auth
                         }
                     } else {
-                        // Password doesn't match the one in database
+                        // Password doesn't match
                         _loginState.value = LoginState.Error("Incorrect password")
-                        Log.d(TAG, "Login failed: incorrect password")
+                        Log.d(TAG, "Login failed: Incorrect password")
                     }
                 } else {
-                    // User not found in database
-                    _loginState.value = LoginState.Error("User not registered. Please sign up")
-                    Log.d(TAG, "Login failed: user not found in database")
+                    // User doesn't exist in database
+                    _loginState.value = LoginState.Error("User not found. Please sign up first.")
+                    Log.d(TAG, "Login failed: User not found")
                 }
             } catch (e: Exception) {
-                // Error with database lookup
+                // Error with database lookup - no notification
                 _loginState.value = LoginState.Error("Login failed: ${e.message}")
                 Log.e(TAG, "Error during database authentication", e)
             }

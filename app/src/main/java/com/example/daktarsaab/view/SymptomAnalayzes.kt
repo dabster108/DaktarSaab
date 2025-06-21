@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -55,14 +56,19 @@ class SymptomAnalayzes : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            DaktarSaabTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    EnhancedSymptomAnalyzer()
-                }
-            }
+            SymptomAnalyzesScreen()
+        }
+    }
+}
+
+@Composable
+private fun SymptomAnalyzesScreen() {
+    DaktarSaabTheme {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            EnhancedSymptomAnalyzer()
         }
     }
 }

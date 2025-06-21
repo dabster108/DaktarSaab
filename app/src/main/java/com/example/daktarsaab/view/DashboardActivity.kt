@@ -21,8 +21,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,7 +32,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -47,7 +44,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
@@ -56,6 +52,7 @@ import com.example.daktarsaab.viewmodel.DashboardViewModel
 import com.google.accompanist.pager.*
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
+import androidx.core.content.edit
 
 
 // Data class for Medical Articles
@@ -82,13 +79,9 @@ class DashboardActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = getColor(R.color.black)
 
         // Initialize the ViewModel
         viewModel = ViewModelProvider(this)[DashboardViewModel::class.java]
-
-        // Set status bar color to match the theme
-        window.statusBarColor = getColor(R.color.black) // Use the app's purple color
 
         // Check if we're coming from login and pass the USER_ID to the ViewModel
         val comingFromLogin = intent.getBooleanExtra("FROM_LOGIN", false)
@@ -113,14 +106,19 @@ class DashboardActivity : ComponentActivity() {
             var isDarkTheme by remember { mutableStateOf(prefs.getBoolean("dark_mode", false)) }
 
             DaktarSaabTheme(darkTheme = isDarkTheme) {
-                DashboardScreen(
-                    isDarkTheme = isDarkTheme,
-                    onThemeToggle = { dark ->
-                        isDarkTheme = dark
-                        prefs.edit().putBoolean("dark_mode", dark).apply()
-                    },
-                    viewModel = viewModel
-                )
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    DashboardScreen(
+                        isDarkTheme = isDarkTheme,
+                        onThemeToggle = { dark ->
+                            isDarkTheme = dark
+                            prefs.edit() { putBoolean("dark_mode", dark) }
+                        },
+                        viewModel = viewModel
+                    )
+                }
             }
         }
     }
@@ -504,15 +502,17 @@ fun ServiceGrid() {
         Pair("Maps", "maps.json")
     )
 
+    val viewModel: DashboardViewModel = viewModel()
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         for (i in services.indices step 2) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                ServiceCard(services[i].first, services[i].second, Modifier.weight(1f))
+                ServiceCard(services[i].first, services[i].second, viewModel, Modifier.weight(1f))
                 if (i + 1 < services.size) {
-                    ServiceCard(services[i + 1].first, services[i + 1].second, Modifier.weight(1f))
+                    ServiceCard(services[i + 1].first, services[i + 1].second, viewModel, Modifier.weight(1f))
                 } else {
                     Spacer(modifier = Modifier.weight(1f))
                 }
@@ -522,10 +522,14 @@ fun ServiceGrid() {
 }
 
 @Composable
-fun ServiceCard(title: String, assetName: String, modifier: Modifier) {
+fun ServiceCard(
+    title: String,
+    assetName: String,
+    viewModel: DashboardViewModel,
+    modifier: Modifier
+) {
     val context = LocalContext.current
     val playLottieForever = title == "X-ray Scan"
-    val viewModel: DashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel() // Get ViewModel instance
 
     val composition by rememberLottieComposition(LottieCompositionSpec.Asset(assetName))
     val progress by animateLottieCompositionAsState(
@@ -1050,4 +1054,3 @@ fun EditProfileHandler(viewModel: DashboardViewModel, onComplete: () -> Unit) {
         onComplete()
     }
 }
-

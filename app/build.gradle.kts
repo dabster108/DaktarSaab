@@ -53,6 +53,9 @@ android {
         compose = true
         buildConfig = true
     }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.1"
+    }
 
     packaging {
         resources {
@@ -77,7 +80,7 @@ dependencies {
     // Firebase dependencies - use BoM to ensure version compatibility
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx:24.10.2")
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-database-ktx")
 
@@ -141,4 +144,13 @@ dependencies {
 
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // Lottie Animation
+    implementation("com.airbnb.android:lottie-compose:6.3.0")
+
+    // Compose Animation
+    implementation("androidx.compose.animation:animation:1.5.4")
+
+    // Material Design Icons
+    implementation("androidx.compose.material:material-icons-extended:1.5.4")
 }

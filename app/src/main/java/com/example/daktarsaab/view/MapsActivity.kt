@@ -40,6 +40,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import coil.compose.AsyncImage
 import com.example.daktarsaab.R
+import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.*
 import kotlinx.coroutines.Dispatchers
@@ -310,7 +311,7 @@ class MapsActivity : ComponentActivity() {
 
         // Use window insetter for modern status bar handling
         ResourcesCompat.getColor(resources, R.color.black, theme).let { color ->
-            window.statusBarColor = color
+            window.statusBarColor = getColor(R.color.black)
         }
 
         Configuration.getInstance().load(
@@ -323,19 +324,31 @@ class MapsActivity : ComponentActivity() {
         val isDarkTheme = intent.getBooleanExtra("IS_DARK_THEME", false)
 
         setContent {
-            DaktarSaabTheme(darkTheme = isDarkTheme) {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    MedicalMapScreen(
-                        userName = userName,
-                        profileImageUrl = profileImageUrl,
-                        onLocationPermissionRequested = {
-                            Log.d("MapsActivity", "Requesting location permission via launcher.")
-                            requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) // Changed to pass an array
-                        },
-                        permissionSignal = 0L // This can be updated based on permission result if needed
-                    )
-                }
-                // Removed the standalone TopAppBar from here
+            MapsActivityScreen(
+                userName = userName,
+                profileImageUrl = profileImageUrl,
+                isDarkTheme = isDarkTheme
+            )
+        }
+    }
+
+    @Composable
+    private fun MapsActivityScreen(
+        userName: String?,
+        profileImageUrl: String?,
+        isDarkTheme: Boolean
+    ) {
+        DaktarSaabTheme(darkTheme = isDarkTheme) {
+            Surface(modifier = Modifier.fillMaxSize()) {
+                MedicalMapScreen(
+                    userName = userName,
+                    profileImageUrl = profileImageUrl,
+                    onLocationPermissionRequested = {
+                        Log.d("MapsActivity", "Requesting location permission via launcher.")
+                        requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION))
+                    },
+                    permissionSignal = 0L
+                )
             }
         }
     }

@@ -17,7 +17,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,16 +65,20 @@ class XrayAnalysisActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.BLACK
 
-
         setContent {
-            com.example.daktarsaab.ui.theme.DaktarSaabTheme(content = {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    XrayAnalysisScreen()
-                }
-            }, colorScheme = colorScheme)
+            XrayAnalysisAppContent()
+        }
+    }
+
+    @Composable
+    private fun XrayAnalysisAppContent() {
+        DaktarSaabTheme {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                XrayAnalysisScreen()
+            }
         }
     }
 }

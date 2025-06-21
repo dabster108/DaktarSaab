@@ -342,7 +342,7 @@ fun ChatScreen(
 
             coroutineScope.launch(Dispatchers.IO) {
                 try {
-                    val apiKey = "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"
+                    val apiKey = "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"
                     val currentMessagesForApi = mutableListOf<GroqMessage>()
                     currentMessagesForApi.add(GroqMessage(role = "system", content = systemPrompt))
                     currentMessagesForApi.addAll(messages.filter { it.role == "user" || it.role == "assistant" })

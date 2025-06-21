@@ -4,12 +4,9 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.util.Patterns
-import android.view.WindowInsetsController
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -17,10 +14,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
@@ -36,9 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
@@ -48,8 +41,8 @@ import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import com.example.daktarsaab.viewmodel.LoginState
 import com.example.daktarsaab.viewmodel.LoginViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+
 import kotlinx.coroutines.delay
 
 class LoginActivity : ComponentActivity() {
@@ -62,6 +55,8 @@ class LoginActivity : ComponentActivity() {
 
         // Initialize the LoginViewModel
         viewModel = ViewModelProvider(this)[LoginViewModel::class.java]
+        // Set the context for notifications
+        viewModel.setContext(this)
 
         // Set status bar color to match the theme
         window.statusBarColor = getColor(R.color.black)
@@ -159,8 +154,8 @@ class LoginActivity : ComponentActivity() {
                                         val user = (loginState as LoginState.Success).user
                                         Log.d(TAG, "Logged in user: ${user.email}, ID: ${user.userId}")
 
+                                        // Show success notification and navigate
                                         Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
-                                        // Pass the theme preference to the dashboard
                                         val intent = Intent(context, DashboardActivity::class.java).apply {
                                             putExtra("FROM_LOGIN", true)
                                             putExtra("USER_ID", user.userId)
@@ -215,9 +210,10 @@ class LoginActivity : ComponentActivity() {
                                         is LoginState.Error -> {
                                             isLoggingIn = false
                                             errorMessage = (loginState as LoginState.Error).message
+                                            // Show Toast for error message
+                                            Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
                                         }
-                                        else -> {
-                                            // Initial state
+                                        null -> {
                                             isLoggingIn = false
                                             errorMessage = null
                                         }
@@ -557,7 +553,11 @@ class LoginActivity : ComponentActivity() {
                                             Image(
                                                 painter = painterResource(id = R.drawable.img1),
                                                 contentDescription = "Google Logo",
-                                                modifier = Modifier.size(24.dp)
+                                                modifier = Modifier
+                                                    .size(24.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color.White)
+                                                    .padding(4.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text("Sign in with Google")

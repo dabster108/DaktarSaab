@@ -70,6 +70,9 @@ class ReminderActivity : ComponentActivity() {
             window.statusBarColor = color
         }
 
+        // Ensure status bar stays black
+        window.statusBarColor = getColor(R.color.black)
+
         val userName = intent.getStringExtra("USER_NAME")
         val profileImageUrl = intent.getStringExtra("PROFILE_IMAGE_URL")
 
