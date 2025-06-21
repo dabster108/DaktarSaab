@@ -21,8 +21,8 @@ class CloudinaryManager {
                 try {
                     val config = mapOf(
                         "cloud_name" to "dr99twhg2",
-                        "api_key" to "764794831832454", // Replace with your actual API key
-                        "api_secret" to "nLLG7-iFUIJRAc0BIxQZnzzy30A", // Replace with your actual API secret
+                        "api_key" to "764794831832454",
+                        "api_secret" to "nLLG7-iFUIJRAc0BIxQZnzzy30A",
                         "secure" to true
                     )
                     MediaManager.init(context, config)
@@ -30,17 +30,19 @@ class CloudinaryManager {
                     Log.d(TAG, "Cloudinary initialized successfully")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error initializing Cloudinary", e)
+                    throw e
                 }
             }
         }
 
         // Upload image to Cloudinary and return the URL
         suspend fun uploadImage(context: Context, imageUri: Uri): String = suspendCancellableCoroutine { continuation ->
-            if (!isInitialized) {
-                init(context)
-            }
-
             try {
+                // Make sure Cloudinary is initialized
+                if (!isInitialized) {
+                    init(context)
+                }
+
                 val requestId = MediaManager.get().upload(imageUri)
                     .option("folder", "daktarsaab_users")
                     .callback(object : UploadCallback {

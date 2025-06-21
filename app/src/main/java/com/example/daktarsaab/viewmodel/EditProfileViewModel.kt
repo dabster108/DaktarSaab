@@ -45,7 +45,6 @@ class EditProfileViewModel : ViewModel() {
         this.userId = userId
         this.email = email
         this.profileImageUrl = profileImageUrl
-        // Update UserDataManager with current profile image
         UserDataManager.updateProfileImage(profileImageUrl)
         fetchUserData()
     }
@@ -85,8 +84,15 @@ class EditProfileViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             try {
-                // First verify the current password using database authentication
-                val user = userRepository.getUserByEmail(email)
+                // Get user data first
+                val user = try {
+                    userRepository.getUserByEmail(email)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to get user data", e)
+                    onError("Failed to verify user credentials")
+                    return@launch
+                }
+
                 if (user == null) {
                     onError("User not found")
                     return@launch
@@ -97,51 +103,44 @@ class EditProfileViewModel : ViewModel() {
                     return@launch
                 }
 
-                // User is authenticated, proceed with updates
-                try {
-                    // 1. Upload new profile image if selected
-                    var newProfileImageUrl = profileImageUrl
-                    if (selectedImageUri != null) {
-                        try {
-                            newProfileImageUrl = CloudinaryManager.uploadImage(context, selectedImageUri!!)
-                            // Update UserDataManager with new profile image URL
-                            UserDataManager.updateProfileImage(newProfileImageUrl)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to upload image to Cloudinary", e)
-                            onError("Failed to upload profile image: ${e.message}")
-                            return@launch
-                        }
+                // Handle image upload if needed
+                var newProfileImageUrl = profileImageUrl
+                if (selectedImageUri != null) {
+                    try {
+                        newProfileImageUrl = CloudinaryManager.uploadImage(context, selectedImageUri!!)
+                        UserDataManager.updateProfileImage(newProfileImageUrl)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to upload image to Cloudinary", e)
+                        onError("Failed to upload profile image: ${e.message}")
+                        return@launch
                     }
+                }
 
-                    // 2. Create updated user model
-                    val updatedUser = UserModel(
-                        userId = userId,
-                        email = if (newEmail.isNotEmpty()) newEmail else email,
-                        password = if (newPassword.isNotEmpty()) newPassword else currentPassword,
-                        firstName = newFirstName,
-                        lastName = newLastName,
-                        imageUrl = newProfileImageUrl,
-                        phoneNumber = user.phoneNumber,
-                        active = user.active,
-                        f = user.f
-                    )
+                // Create updated user model
+                val updatedUser = UserModel(
+                    userId = userId,
+                    email = if (newEmail.isNotEmpty()) newEmail else email,
+                    password = if (newPassword.isNotEmpty()) newPassword else currentPassword,
+                    firstName = newFirstName,
+                    lastName = newLastName,
+                    imageUrl = newProfileImageUrl,
+                    phoneNumber = user.phoneNumber,
+                    active = user.active,
+                    f = user.f
+                )
 
-                    // 3. Update user in database
-                    val success = userRepository.updateUser(updatedUser)
-                    if (success) {
-                        // Update local state
-                        initialFirstName = newFirstName
-                        initialLastName = newLastName
-                        if (newEmail.isNotEmpty()) email = newEmail
-                        if (newProfileImageUrl != profileImageUrl) profileImageUrl = newProfileImageUrl
+                // Update user in database
+                val success = userRepository.updateUser(updatedUser)
+                if (success) {
+                    // Update local state
+                    initialFirstName = newFirstName
+                    initialLastName = newLastName
+                    if (newEmail.isNotEmpty()) email = newEmail
+                    if (newProfileImageUrl != profileImageUrl) profileImageUrl = newProfileImageUrl
 
-                        onSuccess()
-                    } else {
-                        onError("Failed to update profile")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Database error: ${e.message}", e)
-                    onError("Failed to update profile: ${e.message}")
+                    onSuccess()
+                } else {
+                    onError("Failed to update profile")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error during update process", e)

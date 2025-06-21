@@ -46,6 +46,7 @@ import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import kotlinx.coroutines.delay
 import com.airbnb.lottie.compose.*
 import com.example.daktarsaab.R
+import com.example.daktarsaab.utils.CloudinaryManager
 import com.example.daktarsaab.viewmodel.SignupState
 import com.example.daktarsaab.viewmodel.SignupViewModel
 
@@ -56,6 +57,9 @@ class SignupActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = getColor(R.color.black)
+
+        // Initialize Cloudinary early
+        CloudinaryManager.init(this)
 
         // Initialize ViewModel
         viewModel = ViewModelProvider(this)[SignupViewModel::class.java]
