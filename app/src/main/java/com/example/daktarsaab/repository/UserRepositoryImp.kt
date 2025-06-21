@@ -14,23 +14,20 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
-class UserRepositoryImpl : UserRepository {
+class UserRepositoryImp : UserRepository {
 
     private val database: FirebaseDatabase = FirebaseDatabase.getInstance()
     private val usersRef: DatabaseReference = database.getReference("users")
 
     override suspend fun createUser(user: UserModel): Boolean {
         return try {
-            // If userId is empty, use push() to generate a unique key
             val userRef = if (user.userId.isNotEmpty()) {
                 usersRef.child(user.userId)
             } else {
                 usersRef.push().apply {
-                    // Update the user model with the generated key
                     user.userId = key ?: ""
                 }
             }
-
             userRef.setValue(user).await()
             true
         } catch (e: Exception) {
@@ -51,7 +48,6 @@ class UserRepositoryImpl : UserRepository {
 
     override suspend fun getUserByEmail(email: String): UserModel? {
         return suspendCoroutine { continuation ->
-            // Query all users and filter by email locally
             usersRef.get().addOnSuccessListener { snapshot ->
                 if (snapshot.exists()) {
                     for (userSnapshot in snapshot.children) {
@@ -62,7 +58,6 @@ class UserRepositoryImpl : UserRepository {
                         }
                     }
                 }
-                // No user found with this email
                 continuation.resume(null)
             }.addOnFailureListener { exception ->
                 continuation.resumeWithException(exception)
@@ -101,10 +96,7 @@ class UserRepositoryImpl : UserRepository {
                 close(error.toException())
             }
         }
-
         usersRef.addValueEventListener(valueEventListener)
-
-        // Remove the listener when the flow is cancelled
         awaitClose {
             usersRef.removeEventListener(valueEventListener)
         }

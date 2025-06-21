@@ -38,12 +38,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
+import com.example.daktarsaab.R
+import com.example.daktarsaab.ReminderBroadcastReceiver
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import java.util.*
 import android.speech.RecognizerIntent
-import androidx.compose.material3.MaterialTheme.colorScheme
-import com.example.daktarsaab.R
-import com.example.daktarsaab.ReminderBroadcastReceiver
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.TopAppBar
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 
 class ReminderActivity : ComponentActivity() {
     private val requestNotificationPermissionLauncher = registerForActivityResult(
@@ -56,23 +62,79 @@ class ReminderActivity : ComponentActivity() {
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = getColor(R.color.black)
+
+        ResourcesCompat.getColor(resources, R.color.black, theme).let { color ->
+            window.statusBarColor = color
+        }
+
+        val userName = intent.getStringExtra("USER_NAME")
+        val profileImageUrl = intent.getStringExtra("PROFILE_IMAGE_URL")
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
+
         setContent {
-            DaktarSaabTheme(content = {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    ReminderScreen()
-                }
-            }, colorScheme = colorScheme)
+            DaktarSaabTheme {
+                ReminderActivityContent(userName = userName, profileImageUrl = profileImageUrl)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderActivityContent(userName: String?, profileImageUrl: String?) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column {
+            TopAppBar(
+                title = { },
+                actions = {
+                    Row(
+                        modifier = Modifier.padding(end = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (profileImageUrl != null) {
+                            AsyncImage(
+                                model = profileImageUrl,
+                                contentDescription = "Profile Image",
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Profile",
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .padding(8.dp)
+                            )
+                        }
+                        Text(
+                            text = (userName?.split(" ")?.first() ?: "User"),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+            ReminderScreen()
         }
     }
 }

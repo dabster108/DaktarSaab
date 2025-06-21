@@ -6,15 +6,23 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.daktarsaab.model.UserModel
+import com.example.daktarsaab.repository.UserRepository
+import com.example.daktarsaab.repository.UserRepositoryImp
+import com.example.daktarsaab.utils.UserDataManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class DashboardViewModel : ViewModel() {
     private val TAG = "DashboardViewModel"
+
+    private val userRepository: UserRepository = UserRepositoryImp()
+    private val auth = FirebaseAuth.getInstance()
+    private val database = FirebaseDatabase.getInstance()
 
     private val _userData = MutableLiveData<UserModel?>()
     val userData: LiveData<UserModel?> = _userData
@@ -28,12 +36,16 @@ class DashboardViewModel : ViewModel() {
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
 
-    private val auth = FirebaseAuth.getInstance()
-    private val database = FirebaseDatabase.getInstance()
-
     init {
         Log.d(TAG, "Initializing DashboardViewModel - attempting to fetch current user data")
         fetchUserData() // Initial fetch with current auth user
+
+        // Observe profile image changes from UserDataManager
+        viewModelScope.launch {
+            UserDataManager.userProfileImageUrl.collectLatest { newImageUrl ->
+                _userProfileImageUrl.value = newImageUrl
+            }
+        }
     }
 
     fun fetchUserData(forcedUserId: String? = null) {

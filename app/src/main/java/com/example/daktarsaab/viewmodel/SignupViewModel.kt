@@ -9,7 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.daktarsaab.model.UserModel
 import com.example.daktarsaab.repository.UserRepository
-import com.example.daktarsaab.repository.UserRepositoryImpl
+import com.example.daktarsaab.repository.UserRepositoryImp
 import com.example.daktarsaab.utils.CloudinaryManager
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -21,7 +21,7 @@ class SignupViewModel : ViewModel() {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
     // User repository implementation
-    private val userRepository: UserRepository = UserRepositoryImpl()
+    private val userRepository: UserRepository = UserRepositoryImp()
 
     // LiveData for UI state management
     private val _signupState = MutableLiveData<SignupState>()
