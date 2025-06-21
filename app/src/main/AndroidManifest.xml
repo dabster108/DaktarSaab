@@ -97,6 +97,12 @@
             android:label="@string/title_activity_emergency_call"
             android:theme="@style/Theme.DaktarSaab" />
 
+        <activity
+            android:name=".view.EditProfileActivity"
+            android:exported="true"
+            android:label="Edit Profile"
+            android:theme="@style/Theme.DaktarSaab" />
+
         <receiver
             android:name=".ReminderBroadcastReceiver"
             android:exported="false" />

@@ -73,10 +73,15 @@ configurations.all {
 
 dependencies {
     implementation(platform(libs.compose.bom))
-    implementation(libs.firebase.auth)
-    implementation(libs.firebase.database)
+
+    // Firebase dependencies - use BoM to ensure version compatibility
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.firebase:firebase-database-ktx")
+
     implementation(libs.compose.ui.graphics)
-    implementation("com.google.firebase:firebase-auth:23.2.1")
     androidTestImplementation(platform(libs.compose.bom))
 
     // Cloudinary SDK for image upload

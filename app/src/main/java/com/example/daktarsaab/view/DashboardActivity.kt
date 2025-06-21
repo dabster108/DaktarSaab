@@ -1,5 +1,6 @@
 package com.example.daktarsaab.view
 
+import android.annotation.SuppressLint
 import android.content.Context // Added import for Context
 import android.content.Intent
 import android.net.Uri
@@ -53,6 +54,7 @@ import com.example.daktarsaab.R
 import com.example.daktarsaab.ui.theme.DaktarSaabTheme
 import com.example.daktarsaab.viewmodel.DashboardViewModel
 import com.google.accompanist.pager.*
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 
 
@@ -883,13 +885,16 @@ fun UtilityCard(item: UtilityItem) {
     }
 }
 
+
+@SuppressLint("ContextCastToActivity")
 @Composable
-fun ProfileContent(viewModel: DashboardViewModel) { // Removed default viewModel instance
+fun ProfileContent(viewModel: DashboardViewModel) {
     val userProfileImageUrl by viewModel.userProfileImageUrl.observeAsState()
     val userData by viewModel.userData.observeAsState()
+    var showEditProfile by remember { mutableStateOf(false) }
+    val isUserDataLoaded = userData != null
 
-    // Add a LaunchedEffect to log the image URL from the ProfileContent composable
-    LaunchedEffect(userProfileImageUrl, userData) { // Observe changes to these states
+    LaunchedEffect(userProfileImageUrl, userData) {
         Log.d("ProfileContent", "Profile image URL in ProfileContent: $userProfileImageUrl")
         Log.d("ProfileContent", "User data in ProfileContent: FirstName: ${userData?.firstName}, Email: ${userData?.email}")
     }
@@ -899,11 +904,10 @@ fun ProfileContent(viewModel: DashboardViewModel) { // Removed default viewModel
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top // Align content to the top
+        verticalArrangement = Arrangement.Top
     ) {
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Profile Image
         userProfileImageUrl?.let { imageUrl ->
             if (imageUrl.isNotEmpty()) {
                 Log.d("ProfileContent", "Displaying image from URL: $imageUrl")
@@ -911,13 +915,13 @@ fun ProfileContent(viewModel: DashboardViewModel) { // Removed default viewModel
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(imageUrl)
                         .crossfade(true)
-                        .error(R.drawable.baseline_person_24) // Fallback for error
-                        .placeholder(R.drawable.baseline_person_24) // Placeholder while loading
+                        .error(R.drawable.baseline_person_24)
+                        .placeholder(R.drawable.baseline_person_24)
                         .build(),
                     contentDescription = "User Profile Image",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(120.dp) // Increased size
+                        .size(120.dp)
                         .clip(CircleShape)
                         .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
                 )
@@ -932,7 +936,6 @@ fun ProfileContent(viewModel: DashboardViewModel) { // Removed default viewModel
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // User Name
         userData?.let {
             Text(
                 text = "${it.firstName} ${it.lastName}",
@@ -941,14 +944,12 @@ fun ProfileContent(viewModel: DashboardViewModel) { // Removed default viewModel
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
-            // User Email
             Text(
                 text = it.email,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } ?: run {
-            // Placeholder if user data is not yet available
             Text(
                 text = "Loading user data...",
                 style = MaterialTheme.typography.bodyLarge,
@@ -960,34 +961,36 @@ fun ProfileContent(viewModel: DashboardViewModel) { // Removed default viewModel
         Divider()
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Reports Section (Placeholder)
         ProfileSectionItem(title = "My Reports", icon = R.drawable.baseline_assessment_24) {
-            // TODO: Navigate to Reports Screen or show reports content
             Log.d("ProfileContent", "My Reports clicked")
         }
-        ProfileSectionItem(title = "Edit Profile", icon = R.drawable.baseline_edit_24) {
-            // TODO: Navigate to Edit Profile Screen
-            Log.d("ProfileContent", "Edit Profile clicked")
+
+        // Only show Edit Profile option when user data is loaded
+        if (isUserDataLoaded) {
+            ProfileSectionItem(title = "Edit Profile", icon = R.drawable.baseline_edit_24) {
+                showEditProfile = true
+            }
         }
 
-        // Get context reference outside the ProfileSectionItem
         val context = LocalContext.current
 
         ProfileSectionItem(title = "Logout", icon = R.drawable.baseline_logout_24, isDestructive = true) {
-            // Direct logout to login screen without splash animation
             try {
-                // Create intent for LoginActivity
                 val intent = Intent(context, Class.forName("com.example.daktarsaab.view.LoginActivity"))
-                // Clear back stack so user can't go back with back button
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 context.startActivity(intent)
-                // Finish current activity
                 (context as? ComponentActivity)?.finish()
             } catch (e: Exception) {
                 Log.e("ProfileContent", "Error navigating to login screen", e)
             }
         }
+    }
 
+    if (showEditProfile && isUserDataLoaded) {
+        EditProfileHandler(
+            viewModel = viewModel,
+            onComplete = { showEditProfile = false }
+        )
     }
 }
 
@@ -1031,3 +1034,20 @@ fun ProfileSectionItem(title: String, icon: Int, isDestructive: Boolean = false,
         )
     }
 }
+
+@Composable
+fun EditProfileHandler(viewModel: DashboardViewModel, onComplete: () -> Unit) {
+    val context = LocalContext.current
+    val intent = Intent(context, EditProfileActivity::class.java)
+    val user = viewModel.userData.value
+    val profileUrl = viewModel.userProfileImageUrl.value
+    intent.putExtra("USER_EMAIL", user?.email ?: "")
+    intent.putExtra("PROFILE_IMAGE_URL", profileUrl ?: "")
+    intent.putExtra("USER_ID", user?.userId ?: FirebaseAuth.getInstance().currentUser?.uid ?: "")
+
+    LaunchedEffect(Unit) {
+        context.startActivity(intent)
+        onComplete()
+    }
+}
+
